@@ -55,5 +55,6 @@ __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a sele
 
 --------------
 ### PUBLIC METHODS ###
+`var warden = Warden(model)`
 
 - `warden.copy()` -- returns a copy of the selector so if `var w = Warden(model); var z = w.copy()` calling `z.child('foo')` will not effect selector signiture of w.
