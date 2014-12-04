@@ -59,23 +59,24 @@ __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a sele
 
 ___selectors___:
 - `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').and().self().getAll()` will return `[model.foo, model]`.  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
-- `warden.child({string})` -- setup access to a property in a model.  So `warden.child('foo').child('boo').get()` will return `model.foo.boo`.
-- `warden.brood(...{string})` -- a proxy to multiple `child()` calls.  So `warden.brood('foo','boo')` is same as `warden.child('foo').child('boo')`.
-- `warden.descendant({string})` -- does a deapth first search on a model and sets up access to all objects/variables matching the given property name.  Needless to say this can cause an infinite loop.
-- `warden.all()` -- give access to all the properties at a current selector.  If an array this will ittirate through an index or by property if an object.  All can be tricky given the following example:
+- `warden.child({prop})` -- setup access to a property in a model.  So `warden.child('foo').child('boo').get()` will return `model.foo.boo`.
+- `warden.brood(...{prop})` -- a proxy to multiple `child()` calls.  So `warden.brood('foo','boo')` is same as `warden.child('foo').child('boo')`.
+- `warden.descendant({prop})` -- does a deapth first search on a model and sets up access to all objects/variables matching the given property name.  Needless to say this can cause an infinite loop.
+- `warden.all()` -- give access to all the properties at a current selector.  If an array this will ittirate through an index or by property if an object.  `all()` can be tricky given the following example:
 ```
-var model = [1,2,3];
-var res = Warden(model).get();
+var model = {
+  options:[1,2,3]
+};
+
+// WRONG!
+var res = Warden(model).child('options').where(function(v){ return v==1} ); 
+
+// RIGHT!
+var res = Warden(model).child('options').all().where(function(v){return v==1});
 ```
-...this will return an array such that `res === model`.  However:
-```
-var model = [1,2,{foo:123}];
-var res = Warden(model).all().get();
-```
-...will return the first member in a model `1` (since `get()` return only the first selected result.  `getAll()` would have returned all the results).
 - `warden.parent()` -- setup access to a parent on a current selector.
 - `warden.ancestors()` -- setup access to all parents on a current selector untill it hits a 'root' (can's see any more parents).  Could possibly cause an infinite loop.
-- `warden.where({fn})` -- setup access to all object/variables if supplied function returns a truthy value.  Currently, 2 arguments are exposed to the function `function ({object|value}, {int})` where first value is an object in a current selector and second value is an index in a sequence (in a selector not a parent). So:
+- `warden.where({filter})` -- setup access to all object/variables if supplied filter returns a truthy value.  Currently, 2 arguments are exposed to the function `function ({object|value}, {int})` where first value is an object in a current selector and second value is an index in a sequence (in a selector not a parent). So:
 ```
 var model={
   foo:[1,2,3],
@@ -90,7 +91,59 @@ var res = Warden(model)
   .getAll();
 ```
 ...will return `[1]` not `[1,4]`.
-
+- `warden.and()` -- compound selector access.  Everytime `and()` is called this places selector access back at the start (including self).
+```
+var model={
+  foo:{
+    boo:{}
+  }
+}
+var foo = Warden(model).child('foo').get();
+var res = Warden(foo)
+  .child('boo')
+  .and().parent()
+  .getAll(); // res will be [model.foo.boo, model]
+  
+var res2 = Warden(foo)
+  .child('boo')
+  .and()
+  .getAll() // res2 will be [model.foo.boo, model.foo]
+```
 
 ___terminators___:
 - `warden.copy()` -- returns a copy of the selector so if `var w = Warden(model); var z = w.copy()` calling `z.child('foo')` will not effect selector signiture of w.
+- `warden.get()` -- returns the first object/value accessed at a selector.
+- `warden.getAll()` -- returns all the objects/values accessed at a selector.
+- `warden.alter({prop}, {newvalue})` -- sets the property on all objects accessed at a selector to new value.
+```
+var model={
+  options=[ { foo:'old-value' }, 2, 34 ],
+  foo:'old-value'
+}
+
+Warden(model).brood('options','0').and().self().alter('foo', 'new-value');
+// model.options[0].foo is 'new-value'
+// model.foo is 'new-value'
+```
+`alter(), push(), and splice()` return an 'activity' object.  Warden may have been watching the propery which was changed, the delegate executed at change, may have returned a value of its own.  These 'reactions' can be exposed through an activity object.
+```
+var model={
+  options=[ { foo:'old-value' }, 2, 34 ],
+  foo:'old-value'
+}
+
+var c=0;
+Warden(model).child('options').all().and().self().watch(WardenEvent.ALTERED, 'foo', function(e,d) {
+  return ++c;
+})
+
+Warden(model).brood('options','0').and().self().alter('foo', 'new-value')
+  .response(function(a,b) {
+    //a is 1
+    //b is 2
+  });
+```
+`WardenEvent.ALTERED` is triggered by the model if a property changed.
+- `warden.splice({start}, {cut}, {add | [adds]})` -- splices all arrays accessed at a selector (target objects must implement `splice`).  `WardenEvent.ADDED` is triggered by the model if any objects were added, `WardenEvent.REMOVED`. is triggered if objects were removed.  `WardenEvent.SPLICED` is triggered if objects were removed or added.  Similar to `alter()`, `splice()` returns an 'activity' object.
+- `warden.push({add | [adds]})` -- pushes values to all arrays accessed at a selector (target objects must implement `push`).  `WardenEvent.ADDED` and `WardenEvent.SPLICED` are triggered by the model if any objects were added.  Similar to `alter()`, `push()` returns an 'activity' object.
+- `warden.each({process})` -- At all objects accessed by the selector run a given process ittirating by index if array or by property if an object.
