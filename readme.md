@@ -38,9 +38,9 @@ Warden works by placing back references on objects (so nothing lower than IE8) t
 
 ------------------------
 
-There are 3 kinds of warden methods:
+There are 3 kinds of public warden methods:
 
-__Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___watchers___.  Selectors return the same selector object so in this example
+__Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___auditors___.  Selectors return the same selector object so in this example
 ```
 var w = Warden(model);
 var a = w.child('foo');
@@ -49,4 +49,6 @@ var b = w.child('boo');
 ```
 ...all variables (w, a, and b) will direct access to `model.foo.boo`.
 
-__Terminators__ -- Terminators `eg: get(), getAll(), each(), alter()` do something with the value(s) accessed by the selector.
+__Terminators__ -- Terminators `eg: getAll(), each(), alter(), clone()` do something with the selector or value(s) accessed by the selector.
+
+__Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a selector.  The only purpose for auditors is to be used in conjunction with `watch()`.  In other words, `watch()` will finally activate the autitors and effectively start auditing the model.
