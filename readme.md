@@ -52,3 +52,8 @@ var b = w.child('boo');
 __Terminators__ -- Terminators `eg: getAll(), each(), alter(), clone()` do something with the selector or value(s) accessed by the selector.
 
 __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a selector.  The only purpose for auditors is to be used in conjunction with `watch()`.  In other words, `watch()` will finally activate the autitors and effectively start auditing the model.
+
+--------------
+### PUBLIC METHODS ###
+
+- `warden.copy()` -- returns a copy of the selector so if `var w = Warden(model); var z = w.copy()` calling `z.child('foo')` will not effect selector signiture of w.
