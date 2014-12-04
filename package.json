@@ -15,7 +15,7 @@
   },
   "scripts":{
     "test": "jasmine-node tests/"
-  }
+  },
   "engines":{
     "node": ">= 0.10.30"
   },
