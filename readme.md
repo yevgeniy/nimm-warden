@@ -32,10 +32,11 @@ Warden(model)
 		return v.id==1 || v.id==2;
 	})
 	.alter('quantity', 123);
+	```
+------------
+Usefull stuff
 
-```
-
-	Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' and object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing in the model.
+Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' and object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing in the model.
 ------------------------
 
 There are 3 kinds of warden methods:
