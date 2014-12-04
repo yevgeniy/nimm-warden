@@ -1,6 +1,6 @@
 # Nimm Warden
 
-Let Warden watch your model.  When something changes there it will let you know:
+Let Warden watch your model.  When something changes it will let you know:
 ```
 var model = {
 	cartItems:[
@@ -27,6 +27,7 @@ Warden(model).child('cartItems').all().watch(WardenEvent.ALTERED, 'quantity', fu
 
 Warden(model)
 	.child('cartItems')
+	.all()
 	.where(function(v){
 		return v.id==1 || v.id==2;
 	})
