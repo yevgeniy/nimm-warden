@@ -58,7 +58,39 @@ __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a sele
 `var warden = Warden(model)`
 
 ___selectors___:
-- `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').and().self().getAll()` will return [model.foo, model].  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
+- `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').and().self().getAll()` will return `[model.foo, model]`.  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
+- `warden.child({string})` -- setup access to a property in a model.  So `warden.child('foo').child('boo').get()` will return `model.foo.boo`.
+- `warden.brood(...{string})` -- a proxy to multiple `child()` calls.  So `warden.brood('foo','boo')` is same as `warden.child('foo').child('boo')`.
+- `warden.descendant({string})` -- does a deapth first search on a model and sets up access to all objects/variables matching the given property name.  Needless to say this can cause an infinite loop.
+- `warden.all()` -- give access to all the properties at a current selector.  If an array this will ittirate through an index or by property if an object.  All can be tricky given the following example:
+```
+var model = [1,2,3];
+var res = Warden(model).get();
+```
+...this will return an array such that `res === model`.  However:
+```
+var model = [1,2,{foo:123}];
+var res = Warden(model).all().get();
+```
+...will return the first member in a model `1` (since `get()` return only the first selected result.  `getAll()` would have returned all the results).
+- `warden.parent()` -- setup access to a parent on a current selector.
+- `warden.ancestors()` -- setup access to all parents on a current selector untill it hits a 'root' (can's see any more parents).  Could possibly cause an infinite loop.
+- `warden.where({fn})` -- setup access to all object/variables if supplied function returns a truthy value.  Currently, 2 arguments are exposed to the function `function ({object|value}, {int})` where first value is an object in a current selector and second value is an index in a sequence (in a selector not a parent). So:
+```
+var model={
+  foo:[1,2,3],
+  boo:[4,5,6]
+}
+var res = Warden(model)
+  .child('foo')
+  .and().child('boo')
+  .where(function(x, i) {
+  	return i==0;
+  })
+  .getAll();
+```
+...will return `[1]` not `[1,4]`.
+
 
 ___terminators___:
 - `warden.copy()` -- returns a copy of the selector so if `var w = Warden(model); var z = w.copy()` calling `z.child('foo')` will not effect selector signiture of w.
