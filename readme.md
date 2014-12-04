@@ -32,7 +32,7 @@ Warden(model)
 		return v.id==1 || v.id==2;
 	})
 	.alter('quantity', 123);
-	```
+```
 ------------
 Usefull stuff
 
