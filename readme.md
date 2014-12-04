@@ -34,10 +34,19 @@ Warden(model)
 	.alter('quantity', 123);
 ```
 ------------
-Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' and object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing in the model.
+Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' an object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing in the model.
 
 ------------------------
 
 There are 3 kinds of warden methods:
 
-__Selectors__ -- Warden(model) returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___watchers___.
+__Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___watchers___.  Selectors return the same selector object so in this example
+```
+var w = Warden(model);
+var a = w.child('foo');
+w.child('boo');
+
+```
+...the last line will effect 'a' as well since `child` did not return a copy of a selector but the same selector.
+
+__Terminators__ -- Terminators `eg: get(), getAll(), each(), alter()` do something with the value(s) accessed by the selector.
