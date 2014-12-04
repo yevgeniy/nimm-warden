@@ -43,7 +43,7 @@ There are 3 kinds of warden methods:
 __Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___watchers___.  Selectors return the same selector object so in this example
 ```
 var w = Warden(model);
-var a = w.child('foo');
+var a = w;
 w.child('boo');
 
 ```
