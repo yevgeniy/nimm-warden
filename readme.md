@@ -57,5 +57,8 @@ __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a sele
 ### PUBLIC METHODS ###
 `var warden = Warden(model)`
 
+___selectors___:
+- `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').and().self().getAll()` will return [model.foo, model].  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
+
 ___terminators___:
 - `warden.copy()` -- returns a copy of the selector so if `var w = Warden(model); var z = w.copy()` calling `z.child('foo')` will not effect selector signiture of w.
