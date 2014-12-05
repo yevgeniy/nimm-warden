@@ -156,6 +156,31 @@ Warden(model).brood('options','0').and().self().alter('foo', 'new-value')
 
 Two variables are exposed to the notifier ___signature___ and ___changedata___.  Signature describes the process which effected the change -- basically this simply shows the parameters which were used either to alter, splice, or push.  Change data describes the changes which took place.  Changedata is always an array, an entry per object changed.  Signature and changedata objects change based on events (as expected) to adequately describe what happened.
 
+`watch()` returns an instance object that can be used (as one of the ways) to destroy that instance of a watch.
+```
+var watchInst = Warden(model).on(WardenEvent.ALTERED, 'foo', function(e,d) {
+
+});
+watchInst.destroy();
+```
+- `warden.ignore(filter)` -- parse all objects accessed at a selector and ignore those watching selectors at which filter returned a truthy value.  Filter function is given these values: ___event___ of a watching selector, ___prop___, ___notifier___, and the ___selector___ itself.
+```
+Warden(model).on(WardenEvent.ALTERED, 'foo', function(){} );
+
+Warden(model).ignore(function(ev, prop, fn, sel) {
+  return ev==WardenEvent.ALTERED && prop=='foo';
+});
+```
+A very important ward of caution.  Watching selectors are stored on the model so when ignoring selector access must expose that same model to work correctly.
+```
+Warden(model).child('options').watch(WardenEvent.ADDED, function(){});
+
+//WRONG! since the watching selector is on model not model.options.
+Warden(model).child('options').ignore(function(){})
+
+//RIGHT!
+Warden(model).ignore(function(){})
+```
 
 ___auditors___:
 - `warden.on(event)`
