@@ -188,3 +188,25 @@ ___auditors___:
 - `warden.on(event, prop, fn)` -- attaches auditors to a selector.  Events found on `WardenEvent`
 - `warden.at(prop)` -- attach prop autitor to a selector.
 - `warden.notify(fn)` -- attach notifier function to a selector.
+
+--------------------
+##So whats the point of auditors?##
+
+### `Warden.observe(selectors, process, async=false)` ###
+Take a list of selectors with event and prop auditors attached when something changes run the process.  Always runs the process to begin with.
+
+```
+Warden.observe([
+  Warden(model).child('options').all().on(WardenEvent.ALTERED, 'quantity'),
+  Warden(model).child('options').all().child('deliveryMethod').on(WardenEvent.ALTERED, 'code') ]
+  , function() {
+    
+    ...
+  }
+)
+```
+`Warden.observe()` returns an instance object which can be used to destroy the observable.
+```
+var obsInst = Warden.observe(...)
+obsInst.destroy();
+```
