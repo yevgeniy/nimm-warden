@@ -147,3 +147,16 @@ Warden(model).brood('options','0').and().self().alter('foo', 'new-value')
 - `warden.splice({start}, {cut}, {add | [adds]})` -- splices all arrays accessed at a selector (target objects must implement `splice`).  `WardenEvent.ADDED` is triggered by the model if any objects were added, `WardenEvent.REMOVED`. is triggered if objects were removed.  `WardenEvent.SPLICED` is triggered if objects were removed or added.  Similar to `alter()`, `splice()` returns an 'activity' object.
 - `warden.push({add | [adds]})` -- pushes values to all arrays accessed at a selector (target objects must implement `push`).  `WardenEvent.ADDED` and `WardenEvent.SPLICED` are triggered by the model if any objects were added.  Similar to `alter()`, `push()` returns an 'activity' object.
 - `warden.each({process})` -- At all objects accessed by the selector run a given process ittirating by index if array or by property if an object.
+- `warden.clone()` -- clone the first object access at a selector returning a new model cleaned up from all the Warden backlinking.
+- `warden.watch()`
+- `warden.watch({fn})`
+- `warden.watch({event}, {fn})`
+- `warden.watch({event}, {prop}, {fn})` -- activates auditors effectively watching the model.  Currently there are 3 auditors:  ___event___, ___property___, ___notifier___.  Events come from `WardenEvent`, currently valid events are `WardenEvent.ALTERED, WardenEvent.ADDED, WardenEvent.REMOVED, WardenEvent.SPLICED`.  Property is optional and can be included if event is `WardenEvent.ALTERED`.  This tells Warden to call the notifier only if the altered property matches the poperty (otherwise it will call the notifier if any object property changes).  Notifier is a function that Warden will call if effect signiture matches the event and the property.
+
+Two variables are exposed to the notifier ___signature___ and ___changedata___.  Signature describes the process which effected the change -- basically this simply shows the parameters which were used either to alter, splice, or push.  Change data describes the changes which took place.  Changedata is always an array, an entry per object changed.  Signature and changedata objects change based on events (as expected) to adequately describe what happened.
+
+
+___auditors___:
+- `warden.on({event}, {prop | fn}, {fn})` -- attaches auditors to a selector.  Events found on `WardenEvent`
+- `warden.at({prop})` -- attach prop autitor to a selector.
+- `warden.notify({fn})` -- attach notifier function to a selector.
