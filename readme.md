@@ -1,6 +1,6 @@
 # Nimm Warden
 
-Let Warden watch your model.  When something changes there it will let you know:
+Let Warden watch your model.  When something changes it will let you know:
 ```
 var model = {
 	cartItems:[

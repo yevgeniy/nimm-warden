@@ -145,7 +145,7 @@
 				destroy:function(){
 					for (x=0,len=list.length; x < len; x++) {
 						sel=list[x];
-						sel.ignore(function(ev, fn, prop, sel) {
+						Warden(sel._model).ignore(function(ev, fn, prop, sel) {
 							return sel==sel && ev==sel._event;
 						});
 					}
@@ -357,13 +357,13 @@
         }
 
 		/*terminators*/
-		function get(_model) {
-            var subjects = this._exec(_model);
+		function get() {
+            var subjects = this._exec();
 
             return subjects[0];
         }
-        function getAll(_model) {
-            var subjects = this._exec(_model);
+        function getAll() {
+            var subjects = this._exec();
 
             return subjects;
         }
@@ -630,6 +630,8 @@
 			var ev, prop, fn;
 			var _this=this;
 			switch(arguments.length){
+				case 0:
+					break;
 				case 1:
 					this.notify(arguments[0]);
 					break;
@@ -648,7 +650,7 @@
             com.push(this);
             return {
 				destroy:function() {
-					_this.ignore(function(ev,prop,fn,sel) {
+					Warden(_this._model).ignore(function(ev,prop,fn,sel) {
 						return sel==_this;
 					});
 				}
@@ -657,20 +659,31 @@
         function ignore(evaluator) {
             var x, len, com, rem = [];
 
-			var com = this._model.__ward__.com
-            if (com) {
-                for (x = 0, len = com.length; x < len; x++) {
-                    evaluator(com[x]._event, com[x]._at, com[x]._notify, com[x]) /*event, prop, fn, sel */
-                        && rem.push(x);
-                }
-
-                com = com.filter(function (v, i) {
-                    return rem.indexOf(i) == -1;
-                });
+			var targets = this.getAll();
+			
+			var tx, tlen, target;
+			for (tx=0, tlen=targets.length; tx<tlen; tx++) {
+				target = targets[tx];
+				if (!target.__ward__)
+					continue;
 				
-				com = com.length==0 ? null : com;
-				this._model.__ward__.com = com;
-            }
+				var com = target.__ward__.com;		
+				if (com) {
+			
+					for (x = 0, len = com.length; x < len; x++) {
+						var res = evaluator(com[x]._event, com[x]._at, com[x]._notify, com[x]) /*event, prop, fn, sel */
+						res && rem.push(x);
+					}
+
+					com = com.filter(function (v, i) {
+						return rem.indexOf(i) == -1;
+					});
+					
+					com = com.length==0 ? null : com;
+					target.__ward__.com = com;
+				}
+			}
+			
         }
 		
 		function _exec() {

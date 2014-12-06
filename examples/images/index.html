@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="../../index.js"></script>
+		<style>
+			#container{
+				position:relative;
+			}
+			#container .frame{
+				position:absolute;
+				height:200px;
+				width:200px;
+				top:0;
+				left:0;
+				
+				border:solid 1px #afafaf;
+				
+				box-sizing:border-box;
+				
+				transition:all 1s ease;
+			}
+			#container .frame img{
+				margin:auto;
+				left:0;right:0;
+				top:0;bottom:0;
+				
+				position:absolute;
+				
+				opacity:0;
+				transition:all 1s ease;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<div class="frame"><img src="http://lorempixel.com/300/195" /></div>
+			<div class="frame"><img src="http://lorempixel.com/90/500" /></div>
+			<div class="frame"><img src="http://lorempixel.com/150/200" /></div>
+			<div class="frame"><img src="http://lorempixel.com/200/100" /></div>
+			<div class="frame"><img src="http://lorempixel.com/300/195" /></div>
+			<div class="frame"><img src="http://lorempixel.com/90/500" /></div>
+			<div class="frame"><img src="http://lorempixel.com/150/200" /></div>
+			<div class="frame"><img src="http://lorempixel.com/200/100" /></div>
+			<div class="frame"><img src="http://lorempixel.com/300/195" /></div>
+			<div class="frame"><img src="http://lorempixel.com/90/500" /></div>
+			<div class="frame"><img src="http://lorempixel.com/150/200" /></div>
+			<div class="frame"><img src="http://lorempixel.com/200/100" /></div>
+			<div class="frame"><img src="http://lorempixel.com/300/195" /></div>
+			<div class="frame"><img src="http://lorempixel.com/90/500" /></div>
+			<div class="frame"><img src="http://lorempixel.com/150/200" /></div>
+			<div class="frame"><img src="http://lorempixel.com/200/100" /></div>
+		</div>
+	</body>
+	
+	<script>
+		/* First thing first...*/
+		var W = Warden;
+		var WE = WardenEvent;
+		var PADDING=3;
+		
+		window._ViewModel = (function() {
+		
+			function view() {
+				
+				this.images=null;
+				this.containerWidth;
+				
+				this['container width']();
+				this['set x and y on images']();
+				this['load images to get size']();
+				this['set style on frames']();
+				
+				/*Load images*/
+				var imgs = [].slice.call(document.querySelectorAll('.frame'))
+					.map(function(v) {
+						return {
+							elm:v,
+							height:200,
+							width:200,
+							x:0,
+							y:0
+						}
+					});
+				
+				W(this).alter('images', imgs);
+			}
+			
+			view.prototype['set x and y on images'] = function() {
+				var _this=this;
+				W.observe([
+					W(this).on(WE.ALTERED, 'containerWidth'),
+					W(this).on(WE.ALTERED, 'images'),
+					W(this).child('images').all().on(WE.ALTERED, 'width') ]
+					, function() {
+						var images = _this.images;
+						var cwidth = _this.containerWidth;
+					
+						if (!images)
+							return;
+					
+						var cx=0;
+						var cy=0;
+						
+						W(images).all().getAll().forEach(function(img) {				
+						
+							if (cx + img.width > (cwidth-20)) {
+								cx=0;
+								cy = cy + 200 + PADDING;
+							}				
+						
+							W(img).alter('x', cx);
+							W(img).alter('y', cy);
+							
+							cx = cx + img.width + PADDING;
+						});
+					}
+					, true
+				);
+			}
+			view.prototype['set style on frames']=function() {
+				var _this=this;
+				W.observe([
+					W(this).child('images').all().on(WE.ALTERED, 'x'),
+					W(this).child('images').all().on(WE.ALTERED, 'y') ]
+					, function() {
+						var images=_this.images;
+						if (! images)
+							return;
+						
+						W(images).all().getAll().forEach(function(v) {
+						
+							v.elm.style.left = v.x + 'px';
+							v.elm.style.top = v.y + 'px';
+							v.elm.style.width = v.width + 'px';
+							v.elm.style.height = v.height + 'px';
+						});
+					}
+					, true
+				);
+			
+			}
+			view.prototype['container width']=function() {
+				var c = document.querySelector('#container');		
+				var w = c.getClientRects()[0].width;
+				W(this).alter('containerWidth', w);
+				
+				/* >> here we probably want to watch window resizing and set width << */
+			}
+			view.prototype['load images to get size']=function() {
+				var _this=this;
+				W.observe([
+					W(this).on(WE.ALTERED, 'images')]
+					, function() {
+				
+						var images = _this.images;					
+						if (!images)
+							return;
+								
+						W(images).all().getAll().forEach(function(v) {
+							var elm = v.elm.querySelector('img');
+
+							elm.onload=function() {
+								elm.style.height=200 + 'px';
+								elm.style.opacity=1;
+								
+								var rat = 200 / elm.height;
+								var w = elm.width * rat;
+								
+								W(v).alter('width', w);
+							}
+						});
+					}
+				)
+			}
+			
+			return new view();
+		
+		})()
+	</script>
+</html>

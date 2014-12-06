@@ -124,8 +124,8 @@ describe('warden...', function () {
 				);
 				
 				expect(fn).toHaveBeenCalled();
-				expect(fn.calls.count()).toBe(1);
-				
+				expect(fn.calls.count()).toBe(1);				
+
 				obs.destroy();
 				W(model).child('Options').push(123);
 				expect(fn.calls.count()).toBe(1);
@@ -184,8 +184,9 @@ describe('warden...', function () {
 			var fn = jasmine.createSpy('foo');
 		
 			var obj = w.watch('altered', fn);
+
 			obj.destroy();
-			
+
 			W(model).alter('foo', 123123123);
 			
 			expect(fn).not.toHaveBeenCalled();
