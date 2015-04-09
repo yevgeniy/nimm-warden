@@ -18,7 +18,7 @@
         var PUSH = Array.prototype.push;
 		var SPLICE = Array.prototype.splice;
 
-        function Warden(model, _parts, _buffer, _at, _event, _notify) {
+        function Warden(model, _parts, _buffer, _at, _event, _notify, _equiv, _key) {
 			if (model.__ward__ === undefined)
                 model.__ward__ = [];
 			
@@ -31,6 +31,8 @@
 				_at:_at,
 				_event:_event,
 				_notify:_notify,
+				_equiv:_equiv,
+				_key:_key,
 				
                 _parts: parts,
                 _buffer: buffer,
@@ -62,6 +64,13 @@
 				on:on,
 				at:at,
 				notify:notify,
+				eq:eq,
+				gt:gt,
+				lt:lt,
+				gte:gte,
+				lte:lte,
+				is:is,
+				key:key,
 				
                 _exec: _exec,
 				_bubble: _bubble
@@ -158,7 +167,7 @@
 			PUSH.apply(parts, this._parts);
 			var buffer=[];
 			PUSH.apply(buffer, this._buffer);
-			return Warden(this._model, parts, buffer, this._at, this._event, this._notify);
+			return Warden(this._model, parts, buffer, this._at, this._event, this._notify, this._equiv, this._key);
 		}
 		
 		
@@ -626,6 +635,44 @@
 			this._notify=fn
 			return this;
 		}
+		function eq(i){
+			this._equiv=function(x){
+				return i==x;
+			}
+			return this;
+		}
+		function gt(i){
+			this._equiv=function(x){
+				return x>i;
+			}
+			return this;
+		}
+		function lt(i){
+			this._equiv=function(x){
+				return x<i;
+			}
+			return this;
+		}
+		function gte(i){
+			this._equiv=function(x){
+				return x>=i;
+			}
+			return this;
+		}
+		function lte(i){
+			this._equiv=function(x){
+				return x<=i;
+			}
+			return this;
+		}
+		function is(fn){
+			this._equiv=fn;
+			return this;
+		}
+		function key(k) {
+			this._key=k;
+			return this;
+		}
 		function watch(_fn_ev, _fn_prop, _fn) {
 			var ev, prop, fn;
 			var _this=this;
@@ -633,11 +680,17 @@
 				case 0:
 					break;
 				case 1:
-					this.notify(arguments[0]);
+					switch(arguments[0].constructor){
+						case Function: this.notify(arguments[0]);break;
+						case String: this.on(arguments[0]);break;
+					}
 					break;
 				case 2:
 					this.on(arguments[0]);
-					this.notify(arguments[1]);
+					switch(arguments[1].constructor){
+						case Function: this.notify(arguments[1]);break;
+						case String: this.at(arguments[1]);break;
+					}
 					break;
 				case 3:
 					this.on(arguments[0]);
@@ -647,6 +700,15 @@
 			}
             var com = this._model.__ward__.com || (this._model.__ward__.com = []);
 			
+			/*ensure unique key*/
+			if (this._key) {
+				var x,len;
+				for (x=0,len=com.length; x < len; x++)
+					if (com[x]._key==this._key)
+						break;
+				com.splice(x,1);
+			}
+				
             com.push(this);
             return {
 				destroy:function() {
@@ -710,7 +772,7 @@
         }
         function _bubble(eventSignature, subject) {
             var x, len, ancestor, com;
-            var x1, len1, ctx, sel, fn, prop;
+            var x1, len1, ctx, sel, fn, prop, equiv;
             var ancestors = Warden(subject).and().ancestors().getAll();
             var fns = [];
             for (x = 0, len = ancestors.length; x < len; x++) {
@@ -722,10 +784,12 @@
                         ev = com[x1]._event;
 						prop = com[x1]._at;
 						fn = com[x1]._notify;
+						equiv = com[x1]._equiv;
                         sel = com[x1];
-                        
+						
                         if (ev==eventSignature.event
 							&& (prop ? (prop == eventSignature.prop) : true)
+							&& (equiv ? equiv(eventSignature.val) : true)
 							&& sel.getAll().indexOf(subject) > -1)
 							
                             fns.push(fn);

@@ -409,6 +409,9 @@ describe('selectors...', function () {
     })
 });
 describe('events..', function () {
+	
+	
+	
     describe('alter...', function () {
         it('ev fn', function () {
             var fn = jasmine.createSpy('fn');
@@ -579,4 +582,154 @@ describe('events..', function () {
             expect(fn.calls.mostRecent().args[1][0].target).toBe(model);
         });
     });
+});
+describe('watchers...', function(){
+	it('at', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).at('name').watch(WE.ALTERED, fn);
+		
+		W(model).alter('foo', 123);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('name',123);
+		expect(fn).toHaveBeenCalled();
+	})
+	it('notify', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).notify(fn).watch(WE.ALTERED);
+		W(model).alter('name', 123);
+		expect(fn).toHaveBeenCalled();
+	});
+	describe('watch...', function(){
+		it('str', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).notify(fn).watch(WE.ALTERED);
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();	
+		});
+		it('fn', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).on(WE.ALTERED).watch(fn);
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();
+		})
+		it('str str', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).notify(fn).watch(WE.ALTERED,'name');
+			W(model).alter('foo', 123);
+			expect(fn).not.toHaveBeenCalled();
+			
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();
+		});
+		it('str fn', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).watch(WE.ALTERED,fn);
+			W(model).alter('foo', 123);
+			expect(fn).toHaveBeenCalled();
+		});
+		it('str str fn', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).watch(WE.ALTERED,'name',fn);
+			W(model).alter('foo', 123);
+			expect(fn).not.toHaveBeenCalled();
+			
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();
+		})
+	});
+	describe('on...', function(){
+		it('str', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).on(WE.ALTERED).watch(fn);
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();	
+		});
+		it('str str', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).on(WE.ALTERED, 'name').watch(fn);
+			W(model).alter('foo', 123);
+			expect(fn).not.toHaveBeenCalled();	
+			
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();	
+		});
+		it('str str fn', function(){
+			var fn=jasmine.createSpy('foo');
+			W(model).on(WE.ALTERED, 'name', fn).watch();
+			W(model).alter('foo', 123);
+			expect(fn).not.toHaveBeenCalled();	
+			
+			W(model).alter('name', 123);
+			expect(fn).toHaveBeenCalled();	
+		});
+	});
+	it('eq', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'name').eq('foo').watch(fn);
+		W(model).alter('name', 123);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('name', 'foo');
+		expect(fn).toHaveBeenCalled();
+	});
+	it('gt', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'code').gt(10).watch(fn);
+		W(model).alter('code', 10);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('code', 11);
+		expect(fn).toHaveBeenCalled();
+	})
+	it('lt', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'code').lt(10).watch(fn);
+		W(model).alter('code', 10);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('code', 9);
+		expect(fn).toHaveBeenCalled();
+	})
+	it('gte', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'code').gte(10).watch(fn);
+		W(model).alter('code', 9);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('code', 10);
+		expect(fn).toHaveBeenCalled();
+	})
+	it('lte', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'code').lte(10).watch(fn);
+		W(model).alter('code', 11);
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('code', 10);
+		expect(fn).toHaveBeenCalled();
+	})
+	it('is', function(){
+		var fn=jasmine.createSpy('foo');
+		W(model).on(WE.ALTERED, 'name').is(function(x){
+			return x=='foo';
+		}).watch(fn);
+		
+		W(model).alter('name', 'boo');
+		expect(fn).not.toHaveBeenCalled();
+		
+		W(model).alter('name', 'foo');
+		expect(fn).toHaveBeenCalled();
+	})
+	it('key', function(){
+		var fn1=jasmine.createSpy('1');
+		var fn2=jasmine.createSpy('2');
+		W(model).key('foo').watch(WE.ALTERED,'name', fn1);
+		W(model).key('foo').watch(WE.ALTERED,'name', fn2);
+		
+		W(model).alter('name',123);
+		expect(fn1).not.toHaveBeenCalled();
+		expect(fn2).toHaveBeenCalled();
+	})
+	
 });

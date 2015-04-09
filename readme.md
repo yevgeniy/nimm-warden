@@ -184,10 +184,35 @@ Warden(model).ignore(function(){})
 
 ___auditors___:
 - `warden.on(event)`
+- `warden.on(fn)`
+- `warden.on(event, prop)`
 - `warden.on(event, fn)`
 - `warden.on(event, prop, fn)` -- attaches auditors to a selector.  Events found on `WardenEvent`
-- `warden.at(prop)` -- attach prop autitor to a selector.
+- `warden.at(prop)` -- attach prop auditor to a selector.
 - `warden.notify(fn)` -- attach notifier function to a selector.
+- `warden.eq(obj)` -- call event handler only if new altered value matches obj.
+```
+	// fn will be called only if name is set to 'foo'.
+	Warden(model).on(WE.ALTERED, 'name').eq('foo').watch(fn);
+```
+- `warden.gt(int) -- call event handler only if new altered value is greater than int.
+- `warden.lt(int) -- call event handler only if new altered value is less than int.
+- `warden.gte(int) -- call event handler only if new altered value is greater than or equal to int.
+- `warden.lte(int) -- call event handler only if new altered value is less than or equal to int.
+- `warden.is(fn) -- call event handler only if supplyed fn returns true (new value value is exposed to fn).
+```
+	// fn will be called only if name is set to 'foo'.
+	Warden(model).is(function(newname){
+		return newname=='foo';
+	}).watch(WE.ALTERED, 'name', fn);
+	// ...note that function call order for auditors is not important.
+```
+- `warden.key(str) -- ensures that only a single selector by this key can be watched on a model.
+```
+	Warden(model).key('foo').watch(WardenEvent.ALTERED, 'name', fn1)
+	Warden(model).key('foo').watch(WardenEvent.ALTERED, 'name', fn2)
+	// ...in this case the fn1 watcher was overridden by fn2 watcher
+```
 
 --------------------
 ##So whats the point of auditors?##
