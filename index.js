@@ -58,6 +58,8 @@
 				remove:remove,
 				each:each,
 				clone:clone,
+				
+				/*watchers*/
 				watch:watch,
 				watchAsync:watchAsync,
 				observe:observe,

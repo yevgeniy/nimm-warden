@@ -9,8 +9,8 @@ var model = {
 		{id:3, quantity:3},
 	]
 };
-Warden(model).child('cartItems').all().watch(WardenEvent.ALTERED, 'quantity', function(e,d) {
-	//e.event is 'altered'
+Warden(model).child('cartItems').all().watch('quantity', function(e,d) {
+	//e.event is 'set'
 	//e.val is 123
 	
 	//d[0].target is model.cartItems[0]
@@ -34,13 +34,13 @@ Warden(model)
 	.alter('quantity', 123);
 ```
 ------------
-Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' an object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing in the model.
+Warden works by placing back references on objects (so nothing lower than IE8) thus warden has to 'see' an object in a model before it can audit it.  Warden changes very little on the model -- you can still say `model.cartItems` and get the same ref to the array, however to ensure all things work correctly allow Warden to handle reading, writing, pushing, and splicing the model.
 
 ------------------------
 
-There are 3 kinds of public warden methods:
+There are 4 kinds of public warden methods:
 
-__Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___auditors___.  Selectors return the same selector object so in this example
+__Selectors__ -- `Warden(model)` returns a warden selector.  Then selector methods `eg: child(), where(), ancestors()` will drill down to an object(s)/value(s) in a model.  Selectors merely setup access, what is to be done with that target is defined by ___terminators___ or ___watchers___.  Selectors return the same selector object so in this example
 ```
 var w = Warden(model);
 var a = w.child('foo');
@@ -51,7 +51,21 @@ var b = w.child('boo');
 
 __Terminators__ -- Terminators `eg: getAll(), each(), alter(), clone()` do something with the selector or value(s) accessed by the selector.
 
-__Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a selector.  The only purpose for auditors is to be used in conjunction with `watch()`.  In other words, `watch()` will finally activate the autitors and effectively start auditing the model.
+__Watchers__ -- Watch a selector and invoke a handler when an object matching a selector was changed.  In this example
+```
+W(model).brood('cart.cartItems').watch(function() {
+	console.log('hello world');
+})
+```
+...hello world will print when `cart.cartItems` property changes.  If it's an array it will also trigger when anything is added or removed from it.
+
+__Auditors__ -- Auditors `eg: at(), is(), gt()` audit the watched selector before notifying a watcher.  Thus only purpose for auditors is to be used in conjunction with a __watcher__.  So in this example
+```
+W(model).child('shipment').at('quantity').watch(function(){
+	console.log('hello world');
+})
+```
+...hello world will be printed only when property `shipment.quantity` is changed (set or altered).
 
 --------------
 ### PUBLIC METHODS ###
