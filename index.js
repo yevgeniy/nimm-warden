@@ -3,64 +3,67 @@
  */
 (function (window) {
 
-
-    var WardenEvent = window.WardenEvent = {
-        SPLICED: 'spliced',
-        ADDED: 'added',
-        REMOVED: 'removed',
-        ALTERED: 'altered',
-        SET: 'set',
-        UNSET: 'unset'
-    }
+	var WardenEvent = window.WardenEvent = {
+		SET: 'set',
+		SPLICED: 'spliced'
+	};
 
     var Warden = window.Warden = (function () {
         var SLICE = Array.prototype.slice;
         var PUSH = Array.prototype.push;
 		var SPLICE = Array.prototype.splice;
 
-        function Warden(model, _parts, _buffer, _at, _event, _notify, _equiv, _key) {
-			if (model.__ward__ === undefined)
+        function Warden(model, _parts, _buffer, _at, _event, _notify, _equiv, _match) {
+			if (model && model.__ward__ === undefined)
                 model.__ward__ = [];
 			
 			var buffer = _buffer || [];
 			var parts = _parts || [];
+			
+			parts._model = model;
+			parts._at = _at;
+			parts._event = _event;
+			parts._equiv = _equiv;
+			parts._match = _match;
 		
 			var obj = {
 				__iswarden__: true,
-				_model: model,
-				_at:_at,
-				_event:_event,
-				_notify:_notify,
-				_equiv:_equiv,
-				_key:_key,
 				
                 _parts: parts,
                 _buffer: buffer,
-				copy:copy,
+				_notify: _notify,
+				
+				get _at() {			
+					return obj._parts._at;
+				},
 				
 				/*selectors*/
-				self:self,
 				child:child,
 				brood:brood,
 				descendant:descendant,
 				all:all,
 				parent:parent,
+				parents:ancestors,
 				ancestors:ancestors,
 				where:where,
-				and:and,
+				or:or,
 				
 				/*terminators*/
 				get:get,
 				getAll:getAll,
 				alter:alter,
+				ref:ref,
 				splice:splice,
 				push:push,
+				remove:remove,
 				each:each,
 				clone:clone,
-				
-				/*watchers*/
 				watch:watch,
-				ignore:ignore,
+				watchAsync:watchAsync,
+				observe:observe,
+				observeAsync:observeAsync,
+				
+				/*auditors*/
 				on:on,
 				at:at,
 				notify:notify,
@@ -70,15 +73,15 @@
 				gte:gte,
 				lte:lte,
 				is:is,
-				key:key,
+				match:match,
 				
                 _exec: _exec,
-				_bubble: _bubble
+				_bubble: _bubble,
+				_alter:_alter
 			};
             
             return obj;
         }
-        
 		Warden._setProp = function (src, prop, subject) {
             var par, oldsubj, id, oldprop, pars;
 
@@ -87,7 +90,7 @@
 
             /*old prop should be cleaned up*/
             var oldsubj;
-            if (prop !== undefined && typeof (oldsubj = src[prop]) === 'object' && oldsubj !== null) {
+            if (prop !== undefined && isWardable(oldsubj = src[prop])) {
                 var i;
                 (pars = oldsubj.__ward__) && (i = pars.indexOf(src)) > -1
 					&& (pars.splice(i, 1));
@@ -97,7 +100,7 @@
             prop !== undefined && (src[prop] = subject);
 
             /*set parent ref*/
-            if (typeof (subject) === 'object' && subject !== null) {
+            if (isWardable(subject)) {
                 pars = subject.__ward__ || (subject.__ward__ = []);
                 pars.indexOf(src) == -1
                     && pars.push(src);
@@ -109,11 +112,8 @@
             if (src.__ward__ === undefined)
                 src.__ward__ = [];
 
-            var subject = src[prop], r, rep;
-            if (subject === undefined || subject === null)
-                return subject;
-
-            if (typeof (subject) === 'object' && subject !== null) {
+            var subject = src[prop], r;
+            if (isWardable(subject)) {
                 var r;
                 r = subject.__ward__ || (subject.__ward__ = []);
                 r.indexOf(src) == -1
@@ -122,62 +122,9 @@
 
             return subject;
         }
-		Warden.observe = function(list, fn, _async){
-			var _this=this;
-			var async = _async===undefined ? false : _async;
-			list = list.constructor==Array ? list : [list];
-			
-			var x,len,sel,t;
-			for (x=0,len=list.length; x < len; x++) {
-				sel=list[x];			
-
-				async
-					? sel.watch(function(){
-						clearTimeout(t);
-						t=setTimeout(run);
-					})
-					: sel.watch(run);
-				
-			}
-			run();
-			
-			function run(){
-				var args=[];
-				for (x=0,len=list.length; x < len; x++) {
-					sel=list[x];					
-					args.push(sel.copy());
-				}
-				fn.apply(_this, args);
-			}
-			
-			return {
-				destroy:function(){
-					for (x=0,len=list.length; x < len; x++) {
-						sel=list[x];
-						Warden(sel._model).ignore(function(ev, fn, prop, sel) {
-							return sel==sel && ev==sel._event;
-						});
-					}
-				}
-			}
-		}
-		
-		function copy(){
-			var parts=[];
-			PUSH.apply(parts, this._parts);
-			var buffer=[];
-			PUSH.apply(buffer, this._buffer);
-			return Warden(this._model, parts, buffer, this._at, this._event, this._notify, this._equiv, this._key);
-		}
 		
 		
 		/*selectors*/
-        function self() {
-            this._parts.push(function (col) {
-                return col;
-            })
-            return this;
-        }
         function child(prop_fn) {
             this._parts.push(function (col) {
                 var n = [], p;
@@ -196,8 +143,8 @@
             });
             return this;
         }
-        function brood(/*args*/) {
-            var props = SLICE.call(arguments);
+        function brood(propstring) {
+			var props = propstring.split('.');
 
             var x, len;
             for (x = 0, len = props.length; x < len; x++) {
@@ -268,32 +215,31 @@
                 for (x = 0, len = col.length; x < len; x++) {
                     obj = col[x];
 
-                    if (obj === null || obj === undefined)
-                        continue;
-
-                    switch (obj.constructor) {
-                        case Object:
-                            for (i in obj) {
-                                if (i === '__ward__')
-                                    continue;
-                                subj = Warden._prop(obj, i);
-                                if (subj === null || subj === undefined)
-                                    continue;
-                                n.push(subj);
-                            }
-                            break;
-                        case Array:
-                            var x1, len1;
-                            var childs = [];
-                            for (x1 = 0, len1 = obj.length; x1 < len1; x1++) {
-                                subj = Warden._prop(obj, x1);
-                                if (subj === null || subj === undefined)
-                                    continue;
-                                n.push(subj);
-                            }
-                            break;
-                    }
+					if (isWardable(obj))
+						switch (obj.constructor) {
+							case Array:
+								var x1, len1;
+								var childs = [];
+								for (x1 = 0, len1 = obj.length; x1 < len1; x1++) {
+									subj = Warden._prop(obj, x1);
+									if (subj === null || subj === undefined)
+										continue;
+									n.push(subj);
+								}
+								break;
+							default:
+								for (i in obj) {
+									if (i === '__ward__')
+										continue;
+									subj = Warden._prop(obj, i);
+									if (subj === null || subj === undefined)
+										continue;
+									n.push(subj);
+								}
+								break;
+						}
                 };
+				
                 return n;
             });
             return this;
@@ -304,11 +250,8 @@
                 for (x = 0, len = col.length; x < len; x++) {
                     obj = col[x];
 
-                    if (obj === null || obj === undefined)
-                        continue;
-
                     var parents;
-                    if (parents = (obj).__ward__)
+                    if (isWardable(obj) && (parents = (obj).__ward__))
                         PUSH.apply(n, parents);
                 }
                 return n;
@@ -326,11 +269,8 @@
                 function parseParents(obj) {
                     var x, len, par;
 
-                    if (obj === null || obj === undefined)
-                        return;
-
                     var parents;
-                    if (parents = (obj).__ward__)
+                    if (isWardable(obj) && (parents = (obj).__ward__))
                         for (x = 0, len = parents.length; x < len; x++) {
                             par = parents[x];
                             if (n.indexOf(par) === -1) {
@@ -359,9 +299,16 @@
             });
             return this;
         }
-        function and() {
+        function or(_model) {
             this._buffer.push(this._parts);
+			var oldmodel=this._parts._model;
             this._parts = [];
+			
+			var model = _model || oldmodel;
+			if (model.__ward__ === undefined)
+                model.__ward__ = [];
+			
+			this._parts._model=model;
             return this;
         }
 
@@ -376,45 +323,51 @@
 
             return subjects;
         }
-        function alter(prop, newval) {
-            var targets = this._exec();
-			var prop = prop;
-			var x, len, target;
-
-            var info = { event: WardenEvent.ALTERED, prop: prop, val: newval };
-            var fns = [];
-            var changes = [];
-            var z, zen, fn, handlers;
-            for (x = 0, len = targets.length; x < len; x++) {
+		function ref(prop, newval) {
+			var _this=this;
+			var targets = this._exec();
+			var x, len, target, pars;
+			var info = { event: WardenEvent.SET, prop: prop, val: newval };
+			var changes=[];
+			var coms=[];
+			
+			for (x = 0, len = targets.length; x < len; x++) {
                 target = targets[x];
 
                 var oldval = target[prop];
                 if (oldval === newval)
                     continue;
 
-                Warden._setProp(target, prop, newval);
-                handlers = this._bubble(info, target);
-                for (z = 0, zen = handlers.length; z < zen; z++) {
-                    var v = handlers[z];
-                    fns.indexOf(v) == -1
-                        && fns.push(v);
-                }
+				if (prop !== undefined && isWardable(oldval) && oldval.__ward__)
+					pars = SLICE.call(oldval.__ward__);
+				
+				if (pars) {		
+					pars.forEach(function(parent) {
+						find(oldval, parent).forEach(function(p) {
 
-                changes.push({
-                    target: target,
-                    prop: prop,
-                    from: oldval,
-                    to: newval
-                });
+							var sig={event:WardenEvent.SET, prop:p, val:newval};
+							_this._alter(sig, parent, p, newval, changes, coms);
+						})
+					})
+				} else {
+					this._alter(info, target, prop, newval, changes, coms);
+				}
+				
+				isWardable(newval) && isWardable(oldval) && oldval.__ward__.com
+					&& (newval.__ward__.com = oldval.__ward__.com);
+			}
+			var reactions = [], v;
+            for (x = 0, len = coms.length; x < len; x++) {
 
-            }
-
-            var reactions = [], v;
-            for (x = 0, len = fns.length; x < len; x++) {
-                v = fns[x];
-                var reaction = v(info, changes);
-                typeof reaction !== 'undefined'
+                v = coms[x];
+				if (v.expired)
+					continue;
+								
+                var reaction = v._notify(info, changes);
+                reaction !== undefined
                     && reactions.push(reaction);
+					
+				v.__pipe__ && v.__pipe__(reaction);
             }
 
             return {
@@ -423,95 +376,131 @@
                 },
 				val:newval
             };
+		}
+        function alter(prop, newval) {
+		
+            var targets = this._exec();
+			var x, len, target;
+
+            var info = { event: WardenEvent.SET, prop: prop, val: newval };
+            var coms = [];
+            var changes = [];
+            for (x = 0, len = targets.length; x < len; x++) {
+                target = targets[x];
+				this._alter(info, target, prop, newval, changes, coms);
+            }
+
+            var reactions = [], v;
+
+            for (x = 0, len = coms.length; x < len; x++) {
+		
+                v = coms[x];
+				if (v.expired)
+					continue;
+                var reaction = v._notify(info, changes);
+                reaction !== undefined
+                    && reactions.push(reaction);
+				
+				v.__pipe__ && v.__pipe__(reaction);
+				var f = +new Date()
+
+            }
+
+
+            return {
+                response: function (fn) {
+                    fn.apply(this, reactions);
+                },
+				val:newval
+            };
         }
-        function splice(start, cut, add) {
+        function _alter(info, target, prop, newval, changes, coms) {
+			var oldval = target[prop];
+			if (oldval === newval)
+				return;
+
+			Warden._setProp(target, prop, newval);
+
+
+			var icoms = this._bubble(info, target);
+			var z,zen;
+			for (z = 0, zen = icoms.length; z < zen; z++) {
+				var v = icoms[z];
+				coms.indexOf(v) == -1
+					&& coms.push(v);
+			}
+
+			changes.push({
+				src: target,
+				prop: prop,
+				from: oldval,
+				to: newval
+			});
+		}
+		function splice(start, cut, add) {
             var x, len, target, x1, len1, newelm, oldval;
 			var targets = this._exec();
 
             add = add ? (add.constructor == Array ? add : [add]) : [];
 
-            var sinfo = { event: WardenEvent.SPLICED, start: start, cut: cut, add: add };
-            var ainfo = { event: WardenEvent.ADDED, start: start, cut: cut, add: add };
-            var rinfo = { event: WardenEvent.REMOVED, start: start, cut: cut, add: add };
+            var info = { event: WardenEvent.SPLICED, start: start, cut: cut, add: add };
 
-            var sfns = [];
-            var afns = [];
-            var rfns = [];
-
+            var coms = [];
             var changes = [];
+			
             for (x = 0, len = targets.length; x < len; x++) {
                 target = targets[x];
 
-                var args = [start, cut].concat(add);
+				var adding=SLICE.call(add);
+                var args = [start, cut].concat(adding);
                 var removed = SPLICE.apply(target, args);
-
+				
+				removed.at=[];
                 for (x1 = 0, len1 = removed.length; x1 < len1; x1++) {
+					removed.at.push(start + x1);
                     oldval = removed[x1];
                     var r;
-                    if (typeof (oldval) === 'object' && oldval !== null && (r = oldval.__ward__) !== undefined) {
+                    if (isWardable(oldval) && (r = oldval.__ward__)) {
                         var i = r.indexOf(target);
                         if (i > -1)
                             r.splice(i, 1);
                     }
                 }
 
-                for (x1 = 0, len1 = add.length; x1 < len1; x1++) {
-                    newelm = add[x1];
+				adding.at=[];
+                for (x1 = 0, len1 = adding.length; x1 < len1; x1++) {
+					adding.at.push(start + x1);
+                    newelm = adding[x1];
                     Warden._setProp(target, undefined, newelm);
                 }
 
-                var handlers = this._bubble(sinfo, target);
+                var icoms = this._bubble(info, target);
                 var v;
-                for (x1 = 0, len1 = handlers.length; x1 < len1; x1++) {
-                    v = handlers[x1];
-                    sfns.indexOf(v) == -1
-                        && sfns.push(v);
-                }
-
-                if (removed.length > 0) {
-                    handlers = this._bubble(rinfo, target);
-                    for (x1 = 0, len1 = handlers.length; x1 < len1; x1++) {
-                        v = handlers[x1];
-                        rfns.indexOf(v) == -1
-                            && rfns.push(v);
-                    }
-                }
-
-                if (add.length > 0) {
-                    handlers = this._bubble(ainfo, target);
-                    for (x1 = 0, len1 = handlers.length; x1 < len1; x1++) {
-                        v = handlers[x1];
-                        afns.indexOf(v) == -1
-                            && afns.push(v);
-                    }
+                for (x1 = 0, len1 = icoms.length; x1 < len1; x1++) {
+                    v = icoms[x1];
+                    coms.indexOf(v) == -1
+                        && coms.push(v);
                 }
 
                 changes.push({
-                    target: target,
-                    at: start,
+                    src: target,
+                    start: start,
+					cut: cut,
                     removed: removed,
-                    added: add
+                    added: adding
                 });
             }
 
             var reactions = [], v, reaction;
-            for (x = 0, len = sfns.length; x < len; x++) {
-                v = sfns[x];
-                reaction = v(sinfo, changes);
+            for (x = 0, len = coms.length; x < len; x++) {
+                v = coms[x];
+				if (v.expired)
+					continue;
+                reaction = v._notify(info, changes);
                 typeof reaction !== 'undefined'
                     && reactions.push(reaction);
-            }
-            for (x = 0, len = rfns.length; x < len; x++) {
-                v = rfns[x];
-                reaction = v(rinfo, changes);
-                typeof reaction !== 'undefined'
-                    && reactions.push(reaction);
-            }
-            for (x = 0, len = afns.length; x < len; x++) {
-                v = afns[x];
-                reaction = v(ainfo, changes);
-                typeof reaction !== 'undefined'
-                    && reactions.push(reaction);
+					
+				v.__pipe__ && v.__pipe__(reaction);
             }
 
             return {
@@ -526,66 +515,142 @@
             
             add = add ? (add.constructor == Array ? add : [add]) : [];
 			
-            var sinfo = { event: WardenEvent.SPLICED, add: add };
-            var ainfo = { event: WardenEvent.ADDED, add: add };
+            var info = { event: WardenEvent.SPLICED, add: add };
 
-            var sfns = [];
-            var afns = [];
-
+            var coms = [];
             var changes = [];
+			
             for (x = 0, len = targets.length; x < len; x++) {
                 target = targets[x];
 
-                var at = target.length;
-                PUSH.apply(target, add);
+				var adding=SLICE.call(add);
+                var start = target.length;
+                PUSH.apply(target, adding);
 
-                for (x1 = 0, len1 = add.length; x1 < len1; x1++) {
-                    newelm = add[x1];
+				adding.at=[];
+                for (x1 = 0, len1 = adding.length; x1 < len1; x1++) {
+					adding.at.push(start + x1);
+                    newelm = adding[x1];
                     Warden._setProp(target, undefined, newelm);
                 }
 
-                var handlers = this._bubble(sinfo, target);
+                var icoms = this._bubble(info, target);
+
                 var z, zen, v;
-                for (z = 0, zen = handlers.length; z < zen; z++) {
-                    v = handlers[z];
-                    sfns.indexOf(v) == -1
-                        && sfns.push(v);
+                for (z = 0, zen = icoms.length; z < zen; z++) {
+                    v = icoms[z];
+                    coms.indexOf(v) == -1
+                        && coms.push(v);
                 }
 
-                handlers = this._bubble(ainfo, target);
-                for (z = 0, zen = handlers.length; z < zen; z++) {
-                    v = handlers[z];
-                    afns.indexOf(v) == -1
-                        && afns.push(v);
-                }
-
+				var rem=[]
+				rem.at=[];
                 changes.push({
-                    target: target,
-                    at: at,
-                    added: add
+                    src: target,
+                    start: NaN,
+					cut:NaN,
+					added: adding,
+					removed:rem
                 });
             }
 
             var reactions = [], v, reaction;
-            for (x = 0, len = sfns.length; x < len; x++) {
-                v = sfns[x];
-                reaction = v(sinfo, changes);
-                typeof reaction !== 'undefined'
-                    && reactions.push(reaction);
-            }
-            for (x = 0, len = afns.length; x < len; x++) {
-                v = afns[x];
-                reaction = v(ainfo, changes);
-                typeof reaction !== 'undefined'
-                    && reactions.push(reaction);
-            }
+            for (x = 0, len = coms.length; x < len; x++) {
+                v = coms[x];
+				if (v.expired)
+					continue;
 
+                reaction = v._notify(info, changes);
+                typeof reaction !== 'undefined'
+                    && reactions.push(reaction);
+					
+				v.__pipe__ && v.__pipe__(reaction);
+            }
+            
             return {
                 response: function (fn) {
                     fn.apply(this, reactions);
                 }
             };
         }
+		function remove(_fn_ent) {
+			var fn;
+			
+			fn = arguments[0].constructor==Function
+				? arguments[0]
+				: function(v,i) {
+					return v===_fn_ent;
+				}
+				
+			var targets = this._exec();
+			var info = { event: WardenEvent.SPLICED, remove: _fn_ent };
+			
+			var coms = [];
+            var changes = [];
+			
+			var x, len, target, i, oldval;
+			for (x = 0, len = targets.length; x < len; x++) {
+                target = targets[x];
+
+				var removing = target.filter(fn);
+				removing.at=[];
+				removing.forEach(function(oldval) {
+					var i = target.indexOf(oldval);
+					removing.at.push(i);
+					
+					var r;
+                    if (isWardable(oldval) && (r = oldval.__ward__)) {
+                        i = r.indexOf(target);
+                        if (i > -1)
+                            r.splice(i, 1);
+                    }
+				})
+				var xx=removing.at.length;
+				while(--xx > -1) {
+					var i = removing.at[xx];
+					target.splice(i,1);
+				}
+				
+                var icoms = this._bubble(info, target);
+                var z, zen, v;
+                for (z = 0, zen = icoms.length; z < zen; z++) {
+                    v = icoms[z];
+                    coms.indexOf(v) == -1
+                        && coms.push(v);
+                }
+
+				var adding=[];
+				adding.at=[];
+				
+                changes.push({
+                    src: target,
+                    start: NaN,
+					cut: NaN,
+					added: [],
+					removed:removing
+                });
+            }
+
+            var reactions = [], v, reaction;
+            for (x = 0, len = coms.length; x < len; x++) {
+                v = coms[x];
+				if (v.expired)
+					continue;
+
+                reaction = v._notify(info, changes);
+                typeof reaction !== 'undefined'
+                    && reactions.push(reaction);
+					
+				v.__pipe__ && v.__pipe__(reaction);
+            }
+            
+            return {
+                response: function (fn) {
+                    fn.apply(this, reactions);
+                }
+            };
+			
+		}
 		function each(fn) {
 			var targets = this._exec();
 			
@@ -594,11 +659,11 @@
 				var target=targets[tx];
 			
 				var i, x, len;
-				if (target.constructor == Array)
+				if (isArray(target))
 					for (x = 0, len = target.length; x < len; x++) {
 						fn(target[x], x);
 					}
-				else
+				else if (isObject(target))
 					for (i in target) {
 						if (i == '__ward__')
 							continue;
@@ -609,26 +674,23 @@
         function clone() {
             var model = this._exec()[0];
 
-            if (model)
-                return JSON.parse(JSON.stringify(model, function (key, v) {
-                    if (key === '__ward__' || (v && v.constructor == Function))
-                        return undefined;
-                    return v;
-                }));
+			return isWardable(model)
+				? JSON.parse(JSON.stringify(model, function (key, v) {
+					if (key === '__ward__' || (v && v.constructor == Function))
+						return undefined;
+					return v;
+				}))
+				: model;
         }
 		
-		/*watchers*/
-		function on(ev, _prop, _fn) {
-			this._event=ev;
-			if (_prop!==undefined)
-				this._at=_prop;
-			if (_fn!==undefined)
-				this._notify=_fn;
+		/*auditors*/
+		function on(ev) {
+			this._parts._event=ev;
 			
 			return this;
 		}
 		function at(i) {
-			this._at=i;
+			this._parts._at=i;
 			return this;
 		}
 		function notify(fn){
@@ -636,45 +698,47 @@
 			return this;
 		}
 		function eq(i){
-			this._equiv=function(x){
+			this._parts._equiv=function(x){
 				return i==x;
 			}
 			return this;
 		}
 		function gt(i){
-			this._equiv=function(x){
+			this._parts._equiv=function(x){
 				return x>i;
 			}
 			return this;
 		}
 		function lt(i){
-			this._equiv=function(x){
+			this._parts._equiv=function(x){
 				return x<i;
 			}
 			return this;
 		}
 		function gte(i){
-			this._equiv=function(x){
+			this._parts._equiv=function(x){
 				return x>=i;
 			}
 			return this;
 		}
 		function lte(i){
-			this._equiv=function(x){
+			this._parts._equiv=function(x){
 				return x<=i;
 			}
 			return this;
 		}
 		function is(fn){
-			this._equiv=fn;
+			this._parts._equiv=fn;
 			return this;
 		}
-		function key(k) {
-			this._key=k;
+		
+		function match(m) {
+			this._parts._match=m;
 			return this;
 		}
-		function watch(_fn_ev, _fn_prop, _fn) {
-			var ev, prop, fn;
+		
+		function watch(_fn_prop, _fn) {
+			var prop, fn;
 			var _this=this;
 			switch(arguments.length){
 				case 0:
@@ -682,83 +746,128 @@
 				case 1:
 					switch(arguments[0].constructor){
 						case Function: this.notify(arguments[0]);break;
-						case String: this.on(arguments[0]);break;
+						case String: this.at(arguments[0]);break;
 					}
 					break;
 				case 2:
-					this.on(arguments[0]);
-					switch(arguments[1].constructor){
-						case Function: this.notify(arguments[1]);break;
-						case String: this.at(arguments[1]);break;
-					}
-					break;
-				case 3:
-					this.on(arguments[0]);
-					this.at(arguments[1]);
-					this.notify(arguments[2]);
+					this.at(arguments[0]);
+					this.notify(arguments[1])
 					break;
 			}
-            var com = this._model.__ward__.com || (this._model.__ward__.com = []);
 			
-			/*ensure unique key*/
-			if (this._key) {
-				var x,len;
-				for (x=0,len=com.length; x < len; x++)
-					if (com[x]._key==this._key)
-						break;
-				com.splice(x,1);
-			}
-				
-            com.push(this);
+			var srcmodels = [];
+			srcmodels.push(this._parts._model);
+			this._buffer.forEach(function(v){ srcmodels.push(v._model) });
+			
+			srcmodels.forEach(parsesrc)
+			function parsesrc(src) {
+	
+				var com = src.__ward__.com || (src.__ward__.com = []);	
+
+				com.push(_this);
+			} 
+			
             return {
+				__iscomresponse__:true,
 				destroy:function() {
-					Warden(_this._model).ignore(function(ev,prop,fn,sel) {
-						return sel==_this;
-					});
+					srcmodels.forEach(function(src) {
+						var com = src.__ward__.com || (src.__ward__.com = []);
+						var i = com.indexOf(_this);
+						i > -1 && com.splice(i,1);
+						if (com.length==0)
+							src.__ward__.com=null;
+					})
+					return this;
+				},
+				pipe:function(fn) {
+					_this.__pipe__ = fn;
+					return this;
 				}
 			};
         }
-        function ignore(evaluator) {
-            var x, len, com, rem = [];
-
-			var targets = this.getAll();
+        function watchAsync(_fn_prop, _fn){
+			var b=watch.apply(this, arguments);
 			
-			var tx, tlen, target;
-			for (tx=0, tlen=targets.length; tx<tlen; tx++) {
-				target = targets[tx];
-				if (!target.__ward__)
-					continue;
+			var def;
+			var fn=this._notify;
+			var t;
+			this._notify=function() {
+				def = def || Deferred();
+				var args=arguments;
+				clearTimeout(t);
+				t=setTimeout(function() {
+					var res=fn.apply(this, args);
+					var r=def;
+					def=null;			
+					r.resolve(res);
+				});
 				
-				var com = target.__ward__.com;		
-				if (com) {
-			
-					for (x = 0, len = com.length; x < len; x++) {
-						var res = evaluator(com[x]._event, com[x]._at, com[x]._notify, com[x]) /*event, prop, fn, sel */
-						res && rem.push(x);
-					}
-
-					com = com.filter(function (v, i) {
-						return rem.indexOf(i) == -1;
+				return def;
+			}
+			var bpipe=b.pipe;
+			var when;
+			b.pipe=function(fn) {
+				bpipe.call(b,function(def) {
+					when && when.reject();
+					when=When(def).done(function(res) {
+						fn(res);
 					});
-					
-					com = com.length==0 ? null : com;
-					target.__ward__.com = com;
-				}
+				});
+				return b;
+			};
+			
+			b.__async__=true;
+			
+			return b;
+		}
+		function observe(_fn_prop, _fn) {
+			var _this=this;
+
+			var b = watch.apply(this, arguments);
+			
+			var res = this._notify();
+			var bpipe = b.pipe;
+			b.pipe=function(fn) {
+				bpipe.apply(b,arguments);
+				fn(res);
 			}
 			
-        }
+			return b;
+		}
+		function observeAsync(_fn_prop, _fn) {
+			var _this=this;
+
+			var b = watchAsync.apply(this, arguments);
+			
+			var def = this._notify();
+			var bpipe = b.pipe;
+			b.pipe=function(fn) {
+				bpipe.apply(b,arguments);
+				def.done(function(res) {
+					fn(res);
+				});
+				return b;
+			}
+			
+			return b;
+		}
 		
-		function _exec() {
-            var model = this._model;
+		
+		function _exec(_microsel) {
+            var model;
 			
 			var buffer=[];
-			PUSH.apply(buffer, this._buffer);
-			buffer.push(this._parts);
-
+			_microsel
+				? buffer.push(_microsel)
+				: (
+					PUSH.apply(buffer, this._buffer),
+					buffer.push(this._parts) );
+			
             var x0, len0, parts;
             var allsubjects = [];
             for (x0 = 0, len0 = buffer.length; x0 < len0; x0++) {
                 parts = buffer[x0];
+				model = parts._model;
                 var x, len;
                 var subjects = [model], part;
                 for (x = 0, len = parts.length; x < len; x++) {
@@ -771,32 +880,49 @@
             return allsubjects;
         }
         function _bubble(eventSignature, subject) {
+			var _this=this;
             var x, len, ancestor, com;
-            var x1, len1, ctx, sel, fn, prop, equiv;
-            var ancestors = Warden(subject).and().ancestors().getAll();
-            var fns = [];
-            for (x = 0, len = ancestors.length; x < len; x++) {
-                ancestor = ancestors[x];
-                if (ancestor.__ward__
-                    && (com = ancestor.__ward__.com)) {
+            var x1, len1, ctx, sel, fn, prop, equiv, match;
+            var ancestors = Warden(subject).or().ancestors().getAll();
+			var selectionResults;
+            var coms = [];
+			
+			ancestors.forEach(function(ancestor) {
+				if (!ancestor.__ward__ || !(com = ancestor.__ward__.com))
+					return;
+				
 
-                    for (x1 = 0, len1 = com.length; x1 < len1; x1++) {
-                        ev = com[x1]._event;
-						prop = com[x1]._at;
-						fn = com[x1]._notify;
-						equiv = com[x1]._equiv;
-                        sel = com[x1];
+				com.forEach(function(sel) {
+					var parts=[];
+					PUSH.apply(parts, sel._buffer);
+					parts.push(sel._parts);
+
+					
+					parts.forEach(function(part) {
+						ev = part._event;
+						prop = part._at;
+						fn = sel._notify;
+						equiv = part._equiv;
+						match = part._match;
+
+
 						
-                        if (ev==eventSignature.event
+						if (match && match(eventSignature, subject, sel))
+							coms.push(sel)
+						else if (ev ? (ev==eventSignature.event) : true
 							&& (prop ? (prop == eventSignature.prop) : true)
-							&& (equiv ? equiv(eventSignature.val) : true)
-							&& sel.getAll().indexOf(subject) > -1)
+							&& (equiv ? equiv(eventSignature.val, eventSignature, subject) : true)
+							&& _this._exec(part).indexOf(subject) > -1)
 							
-                            fns.push(fn);
-                    }
-                }
-            }
-            return fns;
+							coms.indexOf(sel)==-1
+								&& coms.push(sel);
+						
+					})
+						
+				})			
+                
+			})
+            return coms;
         }
 		
         return Warden;
@@ -812,11 +938,21 @@
                 hay[i] === needle && (props.push(i));
         return props;
     }
+	function isWardable(subject) {
+		return typeof subject=='object' && subject!==null;
+	}
+	function isObject(subject) {
+		return typeof subject=='object' && subject!==null && subject.constructor!==Array;
+	}
+	function isArray(subject) {
+		return typeof subject && subject.constructor == Array;
+	}
 
     (typeof module !== 'undefined' ? module : {})
 		.exports={
 			Warden: window.Warden,
-			WardenEvent: window.WardenEvent
+			WardenEvent: window.WardenEvent,
+			IOSync:typeof require!=='undefined' ? require('./IOSync') : void 0
 		};
 
 })(typeof window !== 'undefined' ? window : {});

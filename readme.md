@@ -58,9 +58,9 @@ __Auditors__ -- Auditors `eg: on(), at()` embed auditable expectations to a sele
 `var warden = Warden(model)`
 
 ___selectors___:
-- `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').and().self().getAll()` will return `[model.foo, model]`.  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
+- `warden.self()` -- returns identity of the current selector.  Mostly a semantic method `warden.child('foo').or().self().getAll()` will return `[model.foo, model]`.  Note `self()` in this example can be totally ignored and `getAll()` will return the same result.
 - `warden.child(prop)` -- setup access to a property in a model.  So `warden.child('foo').child('boo').get()` will return `model.foo.boo`.
-- `warden.brood(...props)` -- a proxy to multiple `child()` calls.  So `warden.brood('foo','boo')` is same as `warden.child('foo').child('boo')`.
+- `warden.brood(props)` -- a proxy to multiple `child()` calls.  So `warden.brood('foo.boo')` is same as `warden.child('foo').child('boo')`.
 - `warden.descendant(prop)` -- does a deapth first search on a model and sets up access to all objects/variables matching the given property name.  Needless to say this can cause an infinite loop.
 - `warden.all()` -- give access to all the properties at a current selector.  If an array this will ittirate through an index or by property if an object.  `all()` can be tricky given the following example:
 ```
@@ -84,14 +84,14 @@ var model={
 }
 var res = Warden(model)
   .child('foo')
-  .and().child('boo')
+  .or().child('boo')
   .where(function(x, i) {
   	return i==0;
   })
   .getAll();
 ```
 ...will return `[1]` not `[1,4]`.
-- `warden.and()` -- compound selector access.  Everytime `and()` is called this places selector access back at the start (including self).
+- `warden.or()` -- compound selector access.  Everytime `or()` is called this places selector access back at the start (including self).
 ```
 var model={
   foo:{
@@ -101,12 +101,12 @@ var model={
 var foo = Warden(model).child('foo').get();
 var res = Warden(foo)
   .child('boo')
-  .and().parent()
+  .or().parent()
   .getAll(); // res will be [model.foo.boo, model]
   
 var res2 = Warden(foo)
   .child('boo')
-  .and()
+  .or()
   .getAll() // res2 will be [model.foo.boo, model.foo]
 ```
 
@@ -121,7 +121,7 @@ var model={
   foo:'old-value'
 }
 
-Warden(model).brood('options','0').and().self().alter('foo', 'new-value');
+Warden(model).brood('options.0').or().self().alter('foo', 'new-value');
 // model.options[0].foo is 'new-value'
 // model.foo is 'new-value'
 ```
@@ -133,11 +133,11 @@ var model={
 }
 
 var c=0;
-Warden(model).child('options').all().and().self().watch(WardenEvent.ALTERED, 'foo', function(e,d) {
+Warden(model).child('options').all().or().self().watch(WardenEvent.ALTERED, 'foo', function(e,d) {
   return ++c;
 })
 
-Warden(model).brood('options','0').and().self().alter('foo', 'new-value')
+Warden(model).brood('options.0').or().self().alter('foo', 'new-value')
   .response(function(a,b) {
     //a is 1
     //b is 2

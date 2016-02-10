@@ -1,6 +1,6 @@
 var model;
-var W = require('../index').Warden;
-var WardenEvent = require('../index').WardenEvent;
+var W = typeof W == 'undefined' ? require('../index').Warden : W;
+var WardenEvent = typeof WardenEvent=='undefined' ? require('../index').WardenEvent : WardenEvent;
 var WE = WardenEvent;
 
 
@@ -70,7 +70,7 @@ describe('warden...', function () {
                 expect(src.__ward__).toBeDefined();
             });
 
-            it('if there is an old subject at the src, then old subject should not longer be a ward of the src', function () {
+            it('if there is an old subject at the src, then old subject should no longer be a ward of the src', function () {
                 W._prop(src, 'foo');
 
                 expect(oldsubject.__ward__.indexOf(src) > -1).toBe(true);
@@ -90,47 +90,7 @@ describe('warden...', function () {
                 expect(newsubject.__ward__.indexOf(src) > -1).toBe(true);
             });
         });
-		describe('observe...', function() {
-			it('creating observable', function() {
-				var fn = jasmine.createSpy('fn');
-				var s1 = W(model).child('Options').on('spliced')
-				var s2 = W(model).child('Options').all().at('Code').on('altered')
-				var s3 = W(model).descendant('AloneObject').on('altered')
-				var obs = W.observe(
-					[	s1,s2, s3 ]
-					, fn
-				);
-				
-				expect(fn).toHaveBeenCalled();
-
-				expect(fn.calls.mostRecent().args[0].get()).toBe(s1.get())
-				expect(fn.calls.mostRecent().args[1].get()).toBe(s2.get())
-				expect(fn.calls.mostRecent().args[2].get()).toBe(s3.get())
-				expect(fn.calls.count()).toBe(1);
-				
-				W(model).child('Options').push(123);
-				expect(fn.calls.mostRecent().args[0].get()).toBe(s1.get())
-				expect(fn.calls.mostRecent().args[1].get()).toBe(s2.get())
-				expect(fn.calls.mostRecent().args[2].get()).toBe(s3.get())
-				expect(fn.calls.count()).toBe(2);
-			});
-			it('destroy observable', function() {
-				var fn = jasmine.createSpy('fn');
-				var obs = W.observe(
-					[	W(model).child('Options').on('spliced'),
-						W(model).child('Options').all().at('Code').on('altered'),
-						W(model).descendant('AloneObject').on('altered') ]
-					, fn
-				);
-				
-				expect(fn).toHaveBeenCalled();
-				expect(fn.calls.count()).toBe(1);				
-
-				obs.destroy();
-				W(model).child('Options').push(123);
-				expect(fn.calls.count()).toBe(1);
-			})
-		})
+		
 	});
     describe('public...', function () {
 
@@ -169,16 +129,7 @@ describe('warden...', function () {
 
 			expect(JSON.stringify(c)).toBe(sig);
         });
-        it('watch', function () {
-			var w = W(model);
-			var fn = function () { };
-		
-			w.watch('altered', fn);
-			
-			expect(model.__ward__.com[0]._event).toBe('altered');
-			expect(model.__ward__.com[0]).toBe(w);
-			expect(model.__ward__.com[0]._notify).toBe(fn);
-		});
+        
 		it('destroy watch', function() {
 			var w = W(model);
 			var fn = jasmine.createSpy('foo');
@@ -191,28 +142,6 @@ describe('warden...', function () {
 			
 			expect(fn).not.toHaveBeenCalled();
 		})
-		it('ignore', function () {
-			var w = W(model);
-			var fn1 = function () { }
-			var fn2 = function () { }
-			W(model).at('mook').watch('altered', fn1);
-			W(model).child('boo').at('foo').watch('altered', fn2);
-			W(model).child('Options').watch('added', function () { });
-		
-			w.ignore(function (event, prop, fn, sel) {
-				return event == 'altered' && prop == 'foo'
-			});
-			
-			expect(model.__ward__.com[0]._event).toBe('altered')
-			expect(model.__ward__.com[0].get()).toBe(w._model);
-			expect(model.__ward__.com[0]._notify).toBe(fn1);
-
-			expect(model.__ward__.com[1]._event).toBe('added')
-			expect(model.__ward__.com[1].get()).toBe(model.Options);
-			expect(model.__ward__.com[1]._notify.constructor).toBe(Function);
-
-			expect(model.__ward__.com.length).toBe(2);
-		});
 		
 		it('getAll', function () {
             var src = {};
@@ -245,11 +174,6 @@ describe('warden...', function () {
 			expect(src.toString()).toBe('1,444,2,3')
         });
 		
-        it('self', function () {
-            var src = {};
-			var res = W(src).self().get();
-			expect(res).toBe(src);
-        });
         it('child', function () {
             var src = {
 				foo: {}
@@ -263,7 +187,7 @@ describe('warden...', function () {
 					moo: 123
 				}
 			};
-			var res = W(src).brood('foo', 'moo').get();
+			var res = W(src).brood('foo.moo').get();
 			expect(res).toBe(src.foo.moo);
         });
         it('descendant', function () {
@@ -278,25 +202,25 @@ describe('warden...', function () {
         describe('all...', function () {
             it('as an array', function () {
                 var src = [{}, 'foo', 123, {}];
-                    var res = W(src).all().getAll();
-                    expect(res[0]).toBe(src[0]);
-                    expect(res[1]).toBe(src[1]);
-                    expect(res[2]).toBe(src[2]);
-                    expect(res[3]).toBe(src[3]);
+				var res = W(src).all().getAll();
+				expect(res[0]).toBe(src[0]);
+				expect(res[1]).toBe(src[1]);
+				expect(res[2]).toBe(src[2]);
+				expect(res[3]).toBe(src[3]);
             });
             it('as an object', function () {
                 var src = {
-                        foo: 123,
-                        moo: {},
-                        boo: {},
-                        coo: 'aasdf'
-                    };
-                    var res = W(src).all().getAll();
-                    expect(res.length).toBe(4);
-                    expect(res.indexOf(src.foo) > -1).toBe(true);
-                    expect(res.indexOf(src.moo) > -1).toBe(true);
-                    expect(res.indexOf(src.boo) > -1).toBe(true);
-                    expect(res.indexOf(src.coo) > -1).toBe(true);
+					foo: 123,
+					moo: {},
+					boo: {},
+					coo: 'aasdf'
+				};
+				var res = W(src).all().getAll();
+				expect(res.length).toBe(4);
+				expect(res.indexOf(src.foo) > -1).toBe(true);
+				expect(res.indexOf(src.moo) > -1).toBe(true);
+				expect(res.indexOf(src.boo) > -1).toBe(true);
+				expect(res.indexOf(src.coo) > -1).toBe(true);
             });
         })
         it('parent', function () {
@@ -342,7 +266,7 @@ describe('warden...', function () {
             var w = W(model);
             expect(w).toBeDefined();
             expect(w.__iswarden__).toBe(true);
-			expect(w._model).toBe(model)
+			expect(w._parts._model).toBe(model)
         });
     });
     
@@ -366,7 +290,7 @@ describe('selectors...', function () {
 		expect(res).toBe(model.Members[1]);
 	})
     it('get brood', function () {
-        var res = W(model).child('Options').brood(0, 'Doom', 1).get();
+        var res = W(model).child('Options').brood('0.Doom.1').get();
         expect(res).toBe(model.Options[0].Doom[1]);
     });
     it('get descendant', function () {
@@ -385,7 +309,7 @@ describe('selectors...', function () {
         expect(res).toBe(model);
     });
     it('get ancestors', function () {
-        var res = W(model).brood('Options', 1, 'AloneObject').ancestors().getAll();
+        var res = W(model).brood('Options.1.AloneObject').ancestors().getAll();
         expect(res[0]).toBe(model.Options[1]);
         expect(res[1]).toBe(model.Options);
         expect(res[2]).toBe(model);
@@ -397,9 +321,9 @@ describe('selectors...', function () {
         }).get();
         expect(res).toBe(model.Options[1]);
     });
-    it('and can concat statements', function () {
+    it('or can concat statements', function () {
         var res = W(model).child('Options').all()
-            .and().descendant('AloneObject')
+            .or().descendant('AloneObject')
 			.getAll();
 
         expect(res[0]).toBe(model.Options[0]);
@@ -407,67 +331,378 @@ describe('selectors...', function () {
         expect(res[2]).toBe(model.Options[1].AloneObject);
         expect(res.length).toBe(3);
     })
+	it('or supply a different model', function() {
+		var otherModel={
+			foo:{}
+		}
+		
+		var res = W(model).child('Options').all()
+            .or().descendant('AloneObject')
+			.or(otherModel).child('foo')
+			.getAll();
+
+        expect(res[0]).toBe(model.Options[0]);
+        expect(res[1]).toBe(model.Options[1]);
+        expect(res[2]).toBe(model.Options[1].AloneObject);
+		expect(res[3]).toBe(otherModel.foo);
+        expect(res.length).toBe(4);
+	})
 });
-describe('events..', function () {
+describe('terminators...', function() {
+	describe('ref...', function() {
+		var model, viewModel;
+		beforeEach(function() {
+			model={
+				cartItems:[{Id:1}]
+			}
+			viewModel={
+				model:null
+			}
+			
+		})
+		it('changes from primitive', function() {
+			var cartItem = W(model).brood('cartItems.0');
+			W(viewModel).ref('model', cartItem);
+			
+			expect(viewModel.model).toBe(cartItem);
+		})
+		it('changes to primitive', function() {
+			var cartItem = W(model).child('cartItems').ref(0, null);
+			expect(model.cartItems[0]).toBe(null);
+		})
+		it('changes from primitive to primitive', function() {
+			W(viewModel).ref('model', 123);
+			expect(viewModel.model).toBe(123);
+		})
+		it('changes from object to object', function() {
+			var ci = W(model).brood('cartItems.0').get();
+			W(viewModel).alter('model',ci);
+			
+			expect(viewModel.model).toBe(ci);
+			expect(ci.__ward__.indexOf(model.cartItems)>-1).toBe(true);
+			expect(ci.__ward__.indexOf(viewModel)>-1).toBe(true);
+			
+			var newci={Id:2};
+			W(viewModel).ref('model', newci);
+			expect(viewModel.model).toBe(newci);
+			expect(newci.__ward__.indexOf(viewModel)>-1).toBe(true);
+			
+			expect(model.cartItems[0]).toBe(newci);
+			expect(newci.__ward__.indexOf(model.cartItems)>-1).toBe(true);
+			
+			expect(ci.__ward__.length).toBe(0);
+		})
+	})
+	describe('watch...', function() {
+		it('pipe result', function() {
+			var fn=jasmine.createSpy('a');
+			var res = W(model).watch('foo', function() {
+				return model.foo;
+			}).pipe(fn);
+			
+			W(model).alter('foo', 234);
+			
+			expect(fn).toHaveBeenCalled();
+			expect(fn.calls.argsFor(0)[0]).toBe(234);
+		})
+		describe('arguments...', function() {
+			it('str', function(){
+				var fn=jasmine.createSpy('foo');
+				var fn1 = jasmine.createSpy('foo1');
+				var fn2 = jasmine.createSpy('foo2');
+				
+				W(model).notify(fn).watch('name');
+				W(model).notify(fn1).watch('foo');
+				W(model).notify(fn2).watch();
+				
+				W(model).alter('name', 123);
+				expect(fn).toHaveBeenCalled();
+				expect(fn1).not.toHaveBeenCalled();
+				expect(fn).toHaveBeenCalled();
+				
+			});
+			it('fn', function(){
+				var fn=jasmine.createSpy('foo');
+				W(model).watch(fn);
+				W(model).alter('name', 123);
+				expect(fn).toHaveBeenCalled();
+			})
+			it('str fn', function(){
+				var fn=jasmine.createSpy('foo');
+				W(model).watch('foo', fn);
+				W(model).alter('foo', 123);
+				expect(fn).toHaveBeenCalled();
+			});
+		})
+		
+		it('watch complex selector', function() {
+			var otherModel={
+				foo:123,
+				boo:{
+					a:2
+				}
+			}
+			var fn=jasmine.createSpy('foo');
+			W(model).child('Options').all().at('Code')
+				.or().child('Members')
+				.or(otherModel).on(WE.SET)
+				.or(otherModel).child('boo').at('a').gt(5)
+				.or(otherModel).child('boo').at('a').lt(10)
+				.watch(fn)
+				
+			W(model).child('Options').child(0).alter('Code',123);
+
+			expect(fn.calls.count()).toBe(1)
+			expect(fn.calls.argsFor(0)[1][0].prop).toBe('Code')
+			expect(fn.calls.argsFor(0)[1][0].to).toBe(123)
+			
+			fn.calls.reset()
+			
+			W(model).child('Members').push(345)
+			expect(fn.calls.count()).toBe(1)
+			expect(fn.calls.argsFor(0)[1][0].src).toBe(model.Members)
+			expect(fn.calls.argsFor(0)[1][0].added[0]).toBe(345)
+				
+			fn.calls.reset()
+			
+			W(otherModel).alter('foo',432);
+			expect(fn.calls.count()).toBe(1)
+			expect(fn.calls.argsFor(0)[1][0].prop).toBe('foo')
+			expect(fn.calls.argsFor(0)[1][0].to).toBe(432);
+		
+			fn.calls.reset()
+			
+			W(otherModel).child('boo').alter('a',11);
+			expect(fn.calls.count()).toBe(1)
+			expect(fn.calls.argsFor(0)[1][0].prop).toBe('a')
+			expect(fn.calls.argsFor(0)[1][0].to).toBe(11)
+				
+			fn.calls.reset()
+			
+			W(otherModel).child('boo').alter('a',7);
+			expect(fn.calls.count()).toBe(1)
+			expect(fn.calls.argsFor(0)[1][0].prop).toBe('a')
+			expect(fn.calls.argsFor(0)[1][0].to).toBe(7)
+		})
+		it('destroy complex selector', function() {
+			var otherModel={
+				foo:123,
+				boo:{
+					a:2
+				}
+			}
+			var fn=jasmine.createSpy('foo');
+			var d=W(model).child('Options').all().at('Code')
+				.or().child('Members')
+				.or(otherModel).on(WE.SET)
+				.or(otherModel).child('boo').at('a').gt(5)
+				.or(otherModel).child('boo').at('a').lt(10)
+				.watch(fn);
+				
+			d.destroy();
+			
+			W(model).child('Options').child(0).alter('Code',123);			
+			W(model).child('Members').push(345)
+			W(otherModel).alter('foo',432);
+			W(otherModel).child('boo').alter('a',11);
+			W(otherModel).child('boo').alter('a',7);
+			
+			expect(fn.calls.count()).toBe(0)
+		})
+	})
+	describe('observe...', function() {
+		it('is called right away, and watches', function() {
+			var fn=jasmine.createSpy('a');
+			var res = W(model).observe('Name', fn);
+			
+			expect(fn.calls.count()).toBe(1)
+			
+			W(model).alter('Name', 234);
+			expect(fn.calls.count()).toBe(2)
+			
+		});
+		it('destroyable', function() {
+			var fn=jasmine.createSpy('a');
+			var res = W(model).observe('Name', fn);
+			
+			expect(fn.calls.count()).toBe(1);
+			
+			W(model).alter('Name', 234);
+			expect(fn.calls.count()).toBe(2)
+			
+			res.destroy();
+			
+			W(model).alter('Name', 345);
+			expect(fn.calls.count()).toBe(2)
+		})
+		it('pipe result', function() {
+			var fn=jasmine.createSpy('a');
+			var res = W(model).observe('Name', function() {
+				return model.Name;
+			}).pipe(fn);
+			
+			expect(fn.calls.argsFor(0)[0]).toBe(model.Name);
+			
+			W(model).alter('Name', 234);
+			
+			expect(fn.calls.argsFor(1)[0]).toBe(234);
+		})
+		it('observe complex selector', function() {
+			var otherModel={
+				foo:123,
+				boo:{
+					a:2
+				}
+			}
+			var fn=jasmine.createSpy('foo');
+			W(model).child('Options').all().at('Code')
+				.or().child('Members')
+				.or(otherModel).on(WE.SET)
+				.or(otherModel).child('boo').at('a').gt(5)
+				.or(otherModel).child('boo').at('a').lt(10)
+				.observe(fn)
+				
+			W(model).child('Options').child(0).alter('Code',123);
+
+			expect(fn.calls.count()).toBe(2)
+			
+			fn.calls.reset()
+			
+			W(model).child('Members').push(345)
+			expect(fn.calls.count()).toBe(1)
+				
+			fn.calls.reset()
+			
+			W(otherModel).alter('foo',432);
+			expect(fn.calls.count()).toBe(1)
+		
+			fn.calls.reset()
+			
+			W(otherModel).child('boo').alter('a',11);
+			expect(fn.calls.count()).toBe(1)
+				
+			fn.calls.reset()
+			
+			W(otherModel).child('boo').alter('a',7);
+			expect(fn.calls.count()).toBe(1)
+		})
+		it('destroy complex selector', function() {
+			var otherModel={
+				foo:123,
+				boo:{
+					a:2
+				}
+			}
+			var fn=jasmine.createSpy('foo');
+			var d=W(model).child('Options').all().at('Code')
+				.or().child('Members')
+				.or(otherModel).on(WE.SET)
+				.or(otherModel).child('boo').at('a').gt(5)
+				.or(otherModel).child('boo').at('a').lt(10)
+				.watch(fn);
+				
+			d.destroy();
+			
+			W(model).child('Options').child(0).alter('Code',123);			
+			W(model).child('Members').push(345)
+			W(otherModel).alter('foo',432);
+			W(otherModel).child('boo').alter('a',11);
+			W(otherModel).child('boo').alter('a',7);
+			
+			expect(fn.calls.count()).toBe(0)
+		})
+	})
+
 	
+})
+describe('events...', function () {
 	
-	
+	describe('ref...', function() {
+		it('prop fn | fn', function() {
+			var mem1={Id:1};
+			W(model).alter('Name', mem1);
+			W(model).child('Members').alter(1, mem1);
+			
+			var fn1 = jasmine.createSpy('foo');
+			var fn2 = jasmine.createSpy('boo');
+			W(model).watch('Name', fn1);
+			W(model).brood('Members').watch(fn2);
+			
+			var mem2={Id:2};
+			W(model).ref('Name', mem2);
+			expect(fn1.calls.count()).toBe(1);
+			expect(fn2.calls.count()).toBe(1);	
+		});
+		it('exposes context', function () {
+            var fn = jasmine.createSpy('fn');
+            W(model).descendant(1).at('foo').watch(fn);
+
+            W(model).child('Options').all().ref('foo',444);
+
+			expect(fn.calls.mostRecent().args[0].event).toBe(WE.SET);
+            expect(fn.calls.mostRecent().args[0].prop).toBe('foo');
+            expect(fn.calls.mostRecent().args[0].val).toBe(444);
+
+			
+            expect(fn.calls.mostRecent().args[1][0].from).toBe(undefined);
+            expect(fn.calls.mostRecent().args[1][0].prop).toBe('foo');
+            expect(fn.calls.mostRecent().args[1][0].src).toBe(model.Options[0]);
+            expect(fn.calls.mostRecent().args[1][0].to).toBe(444);
+
+            expect(fn.calls.mostRecent().args[1][1].from).toBe('hello world');
+            expect(fn.calls.mostRecent().args[1][1].prop).toBe('foo');
+            expect(fn.calls.mostRecent().args[1][1].src).toBe(model.Options[1]);
+            expect(fn.calls.mostRecent().args[1][1].to).toBe(444);
+        });		
+	})
     describe('alter...', function () {
-        it('ev fn', function () {
+        it('fn', function () {
             var fn = jasmine.createSpy('fn');
             var fn2 = jasmine.createSpy('fn2');
-            W(model).watch('altered', fn);
-            W(model).watch('altered', fn2);
+            W(model).watch(fn);
+            W(model).watch(fn2);
 
             W(model).alter('foo',123);
             expect(fn).toHaveBeenCalled();
             expect(fn2).toHaveBeenCalled();
         });
-        it('ev sel fn', function () {
+        it('prop fn', function () {
             var fn = jasmine.createSpy('fn');
-            W(model).child('Options').all().watch('altered', fn)
-
-            W(model).brood('Options', 1).alter('Code',4);
-            expect(fn).toHaveBeenCalled();
-        });
-        it('ev prop fn', function () {
-            var fn = jasmine.createSpy('fn');
-            W(model).at('foo').watch('altered', fn)
+			var fn1 = jasmine.createSpy('fn1');
+			var fn2 = jasmine.createSpy('fn2');
+			
+            W(model).at('foo').watch(fn)
+			W(model).watch('foo', fn1)
+			W(model).watch('boo', fn1)
 
             W(model).alter('foo',4);
-            expect(fn).toHaveBeenCalled();
-        });
-        it('ev prop sel fn', function () {
-            var fn = jasmine.createSpy('fn');
-            W(model).child('Options').all().at('foo').watch('altered', fn)
-
-            W(model).brood('Options', 1).alter('boo',4);
-            expect(fn).not.toHaveBeenCalled();
-            W(model).brood('Options', 0).alter('foo',4);
-            expect(fn).toHaveBeenCalled();
+            expect(fn.calls.count()).toBe(1)
+			expect(fn1.calls.count()).toBe(1)
+			expect(fn2.calls.count()).toBe(0)
         });
 		
         it('exposes context', function () {
             var fn = jasmine.createSpy('fn');
-            W(model).descendant(1).at('foo').watch('altered', fn);
+            W(model).descendant(1).at('foo').watch(fn);
 
             W(model).child('Options').all().alter('foo',444);
 
-            expect(fn.calls.mostRecent().args[0].event).toBe('altered');
+			expect(fn.calls.mostRecent().args[0].event).toBe(WE.SET);
             expect(fn.calls.mostRecent().args[0].prop).toBe('foo');
             expect(fn.calls.mostRecent().args[0].val).toBe(444);
 
             expect(fn.calls.mostRecent().args[1][0].from).toBe(undefined);
             expect(fn.calls.mostRecent().args[1][0].prop).toBe('foo');
-            expect(fn.calls.mostRecent().args[1][0].target).toBe(model.Options[0]);
+            expect(fn.calls.mostRecent().args[1][0].src).toBe(model.Options[0]);
             expect(fn.calls.mostRecent().args[1][0].to).toBe(444);
 
             expect(fn.calls.mostRecent().args[1][1].from).toBe('hello world');
             expect(fn.calls.mostRecent().args[1][1].prop).toBe('foo');
-            expect(fn.calls.mostRecent().args[1][1].target).toBe(model.Options[1]);
+            expect(fn.calls.mostRecent().args[1][1].src).toBe(model.Options[1]);
             expect(fn.calls.mostRecent().args[1][1].to).toBe(444);
         });
-    });
+		
+	});
     describe('push...', function () {
         beforeEach(function () {
             model = [
@@ -492,39 +727,107 @@ describe('events..', function () {
                 }
             ];
         });
-        it('ev fn', function () {
+        it('fn', function () {
             var fn = jasmine.createSpy('fn');
-            W(model).watch('added', fn);
+			
+            W(model).watch(fn);
 
             W(model).push([123, 234]);
             expect(fn).toHaveBeenCalled();
-        });
-        it('ev sel fn', function () {
-            var fn = jasmine.createSpy('fn');
-            W(model).descendant('Options').watch('added', fn)
+			
+			/////////
+			var fn = jasmine.createSpy('fn');
+            W(model).descendant('Options').watch(fn);
 
-            W(model).brood(0, 'Options').push({});
+            W(model).brood('0.Options').push({});
             expect(fn).toHaveBeenCalled();
         });
         
         it('exposes context', function () {
             var fn = jasmine.createSpy('fn');
-            W(model).watch('added', fn);
+            W(model).watch(fn);
 
             var newobj = {}
             W(model).push([newobj, 'hello feemer']);
 
-            expect(fn.calls.mostRecent().args[0].event).toBe('added');
+			expect(fn.calls.mostRecent().args[0].event).toBe(WE.SPLICED);
             expect(fn.calls.mostRecent().args[0].add[0]).toBe(newobj);
             expect(fn.calls.mostRecent().args[0].add[1]).toBe('hello feemer');
 
             expect(fn.calls.mostRecent().args[1][0].added[0]).toBe(newobj);
             expect(fn.calls.mostRecent().args[1][0].added[1]).toBe('hello feemer');
-            expect(fn.calls.mostRecent().args[1][0].at).toBe(2);
-            expect(fn.calls.mostRecent().args[1][0].target).toBe(model);
+			expect(fn.calls.mostRecent().args[1][0].added.at[0]).toBe(2);
+			expect(fn.calls.mostRecent().args[1][0].added.at[1]).toBe(3);
+			expect(fn.calls.mostRecent().args[1][0].removed.length).toBe(0);
+			expect(fn.calls.mostRecent().args[1][0].removed.at.length).toBe(0);
+            expect(isNaN(fn.calls.mostRecent().args[1][0].start)).toBe(true);
+            expect(fn.calls.mostRecent().args[1][0].src).toBe(model);
 
         });
     });
+	describe('remove...', function() {
+		beforeEach(function () {
+            model = [
+				1,
+				'foo bar was',
+                {
+                    Code: 4,
+                    Name: "foo",
+                    Foo: 5,
+                    Options: [1, 2, 3, 4, {
+                        Options: {
+                            prop: 'hello world'
+                        }
+                    }],
+                    Doom: [['a'], ['b'], ['c']]
+                },
+                {
+                    Code: 6,
+                    Name: "fum",
+                    foo: 'hello world',
+                    Fim: null,
+                    Doom: [['aaa'], ['bbb'], ['ccc']],
+                    AloneObject: {}
+                },
+				123,
+				123
+            ];
+        });
+		it('fn', function() {
+			var r1 = model[0];
+			var r2 = model[2];
+			W(model).remove(function(v, i) {
+				return v==model[0] || i==2;
+			});
+			
+			expect(model[0]).toBe('foo bar was');
+			expect(model[1].Code).toBe(6)
+			expect(model[2]).toBe(123)
+			
+			//////////
+			W(model).remove(123)
+			expect(model.some(function(v){v==123})).toBe(false);
+		})
+		it('expose context', function() {
+			var r1 = model[0];
+			var r2 = model[2];
+			var fn = jasmine.createSpy('foo');
+			W(model).watch(fn);
+			var f;
+			W(model).remove(f=function(v, i) {
+				return v==model[0] || i==2;
+			});
+			
+			expect(fn).toHaveBeenCalled()
+			expect(fn.calls.mostRecent().args[0].event).toBe(WE.SPLICED)
+			expect(fn.calls.mostRecent().args[0].remove).toBe(f);
+			
+			expect(fn.calls.mostRecent().args[1][0].removed[0]).toBe(r1);
+			expect(fn.calls.mostRecent().args[1][0].removed[1]).toBe(r2);
+			expect(fn.calls.mostRecent().args[1][0].removed.at[0]).toBe(0);
+			expect(fn.calls.mostRecent().args[1][0].removed.at[1]).toBe(2);
+		})
+	})
     describe('splice...', function () {
         beforeEach(function () {
             model = [
@@ -549,44 +852,53 @@ describe('events..', function () {
                 }
             ];
         });
-        it('ev fn', function () {
+        it('fn', function () {
             var fn = jasmine.createSpy('fn');
-            W(model).watch('spliced', fn);
+            W(model).watch(fn);
 
-            W(model).splice(0, 1, [123, 234]);
+            W(model).splice(1, 1, [123, 234]);
             expect(fn).toHaveBeenCalled();
-        });
-        it('ev sel fn', function () {
-            var fn = jasmine.createSpy('fn');
-            W(model).descendant('Options').watch('spliced', fn)
 
-            W(model).brood(0, 'Options').splice(0,0,'foo bar was');
+			/////////			
+			var fn = jasmine.createSpy('fn2');
+            W(model).descendant('Options').watch(fn)
+
+            W(model).brood('0.Options').splice(0,0,'foo bar was');
             expect(fn).toHaveBeenCalled();
         });
         it('exposes context', function () {
+			
+			var toberemoved=model[1];
             var fn = jasmine.createSpy('fn');
-            W(model).watch('spliced', fn);
+            W(model).watch(fn);
 
             var newobj = {};
             W(model).splice(1,1, [newobj, 'hello feemer']);
 
-            expect(fn.calls.mostRecent().args[0].event).toBe('spliced');
+			expect(fn.calls.mostRecent().args[0].event).toBe(WE.SPLICED);
             expect(fn.calls.mostRecent().args[0].add[0]).toBe(newobj);
             expect(fn.calls.mostRecent().args[0].add[1]).toBe('hello feemer');
+			
             expect(fn.calls.mostRecent().args[0].cut).toBe(1);
             expect(fn.calls.mostRecent().args[0].start).toBe(1);
 
             expect(fn.calls.mostRecent().args[1][0].added[0]).toBe(newobj);
             expect(fn.calls.mostRecent().args[1][0].added[1]).toBe('hello feemer');
-            expect(fn.calls.mostRecent().args[1][0].at).toBe(1);
-            expect(fn.calls.mostRecent().args[1][0].target).toBe(model);
+			expect(fn.calls.mostRecent().args[1][0].added.at[0]).toBe(1);
+			expect(fn.calls.mostRecent().args[1][0].added.at[1]).toBe(2);
+			expect(fn.calls.mostRecent().args[1][0].removed[0]).toBe(toberemoved);
+			expect(fn.calls.mostRecent().args[1][0].removed.at[0]).toBe(1);
+            expect(fn.calls.mostRecent().args[1][0].start).toBe(1);
+            expect(fn.calls.mostRecent().args[1][0].src).toBe(model);
         });
     });
+	
+	
 });
 describe('watchers...', function(){
 	it('at', function(){
 		var fn=jasmine.createSpy('foo');
-		W(model).at('name').watch(WE.ALTERED, fn);
+		W(model).at('name').watch(fn);
 		
 		W(model).alter('foo', 123);
 		expect(fn).not.toHaveBeenCalled();
@@ -596,72 +908,25 @@ describe('watchers...', function(){
 	})
 	it('notify', function(){
 		var fn=jasmine.createSpy('foo');
-		W(model).notify(fn).watch(WE.ALTERED);
+		W(model).notify(fn).watch();
 		W(model).alter('name', 123);
 		expect(fn).toHaveBeenCalled();
 	});
-	describe('watch...', function(){
-		it('str', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).notify(fn).watch(WE.ALTERED);
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();	
-		});
-		it('fn', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).on(WE.ALTERED).watch(fn);
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();
-		})
-		it('str str', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).notify(fn).watch(WE.ALTERED,'name');
-			W(model).alter('foo', 123);
-			expect(fn).not.toHaveBeenCalled();
-			
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();
-		});
-		it('str fn', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).watch(WE.ALTERED,fn);
-			W(model).alter('foo', 123);
-			expect(fn).toHaveBeenCalled();
-		});
-		it('str str fn', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).watch(WE.ALTERED,'name',fn);
-			W(model).alter('foo', 123);
-			expect(fn).not.toHaveBeenCalled();
-			
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();
-		})
-	});
+	
 	describe('on...', function(){
 		it('str', function(){
 			var fn=jasmine.createSpy('foo');
-			W(model).on(WE.ALTERED).watch(fn);
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();	
-		});
-		it('str str', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).on(WE.ALTERED, 'name').watch(fn);
-			W(model).alter('foo', 123);
-			expect(fn).not.toHaveBeenCalled();	
+			var fn1=jasmine.createSpy('foo1');
+			var fn2=jasmine.createSpy('foo2');
 			
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();	
-		});
-		it('str str fn', function(){
-			var fn=jasmine.createSpy('foo');
-			W(model).on(WE.ALTERED, 'name', fn).watch();
-			W(model).alter('foo', 123);
-			expect(fn).not.toHaveBeenCalled();	
+			W(model).child('Options').on(WE.SET).watch(fn);
+			W(model).child('Options').on(WE.SPLICED).watch(fn1);
+			W(model).child('Options').watch(fn2);
 			
-			W(model).alter('name', 123);
-			expect(fn).toHaveBeenCalled();	
+			W(model).child('Options').alter(0, 123);
+			expect(fn).toHaveBeenCalled();
+			expect(fn1).not.toHaveBeenCalled();	
+			expect(fn2).toHaveBeenCalled();
 		});
 	});
 	it('eq', function(){
@@ -721,15 +986,5 @@ describe('watchers...', function(){
 		W(model).alter('name', 'foo');
 		expect(fn).toHaveBeenCalled();
 	})
-	it('key', function(){
-		var fn1=jasmine.createSpy('1');
-		var fn2=jasmine.createSpy('2');
-		W(model).key('foo').watch(WE.ALTERED,'name', fn1);
-		W(model).key('foo').watch(WE.ALTERED,'name', fn2);
-		
-		W(model).alter('name',123);
-		expect(fn1).not.toHaveBeenCalled();
-		expect(fn2).toHaveBeenCalled();
-	})
-	
+
 });
