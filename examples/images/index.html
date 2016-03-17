@@ -56,7 +56,6 @@
 	<script>
 		/* First thing first...*/
 		var W = Warden;
-		var WE = WardenEvent;
 		var PADDING=3;
 		
 		window._ViewModel = (function() {
@@ -88,56 +87,51 @@
 			
 			view.prototype['set x and y on images'] = function() {
 				var _this=this;
-				W.observe([
-					W(this).on(WE.ALTERED, 'containerWidth'),
-					W(this).on(WE.ALTERED, 'images'),
-					W(this).child('images').all().on(WE.ALTERED, 'width') ]
-					, function() {
-						var images = _this.images;
-						var cwidth = _this.containerWidth;
+				
+				W(this).at('containerWidth')
+				.or().at('images')
+				.or().child('images').all().at('width').observeAsync(function() {
+					var images = _this.images;
+					var cwidth = _this.containerWidth;
+				
+					if (!images)
+						return;
+				
+					var cx=0;
+					var cy=0;
 					
-						if (!images)
-							return;
+					W(images).all().getAll().forEach(function(img) {				
 					
-						var cx=0;
-						var cy=0;
+						if (cx + img.width > (cwidth-20)) {
+							cx=0;
+							cy = cy + 200 + PADDING;
+						}				
+					
+						W(img).alter('x', cx);
+						W(img).alter('y', cy);
 						
-						W(images).all().getAll().forEach(function(img) {				
-						
-							if (cx + img.width > (cwidth-20)) {
-								cx=0;
-								cy = cy + 200 + PADDING;
-							}				
-						
-							W(img).alter('x', cx);
-							W(img).alter('y', cy);
-							
-							cx = cx + img.width + PADDING;
-						});
-					}
-					, true
-				);
+						cx = cx + img.width + PADDING;
+					});
+				});
+				
 			}
 			view.prototype['set style on frames']=function() {
 				var _this=this;
-				W.observe([
-					W(this).child('images').all().on(WE.ALTERED, 'x'),
-					W(this).child('images').all().on(WE.ALTERED, 'y') ]
-					, function() {
-						var images=_this.images;
-						if (! images)
-							return;
-						
-						W(images).all().getAll().forEach(function(v) {
-						
-							v.elm.style.left = v.x + 'px';
-							v.elm.style.top = v.y + 'px';
-							v.elm.style.width = v.width + 'px';
-							v.elm.style.height = v.height + 'px';
-						});
-					}
-					, true
-				);
+				
+				W(this).child('images').all().at('x')
+				.or().child('images').all().at('y').observeAsync(function() {
+					var images=_this.images;
+					if (! images)
+						return;
+					
+					W(images).all().getAll().forEach(function(v) {
+					
+						v.elm.style.left = v.x + 'px';
+						v.elm.style.top = v.y + 'px';
+						v.elm.style.width = v.width + 'px';
+						v.elm.style.height = v.height + 'px';
+					});
+				});
 			
 			}
 			view.prototype['container width']=function() {
@@ -149,11 +143,10 @@
 			}
 			view.prototype['load images to get size']=function() {
 				var _this=this;
-				W.observe([
-					W(this).on(WE.ALTERED, 'images')]
-					, function() {
 				
-						var images = _this.images;					
+					W(this).observe('images', function() {
+				
+						var images = _this.images;		
 						if (!images)
 							return;
 								
@@ -170,8 +163,7 @@
 								W(v).alter('width', w);
 							}
 						});
-					}
-				)
+					})
 			}
 			
 			return new view();

@@ -1,13 +1,33 @@
 var Deferred = require('nimm-util').Deferred;
 
-
-module.exports=function(io, model) {
+module.exports=function(io, base) {
 
 	var W = require('./index').Warden;
-	var WE = require('./index').WardenEvent;
+	var Rep = require('./index').Rep;
+	
+	Rep.onqueue(function(change) {
+		var ancestors = W(change.src)('| <<').getAll();
+		var model=W(base)('model').get();
+		if (ancestors.indexOf(model)==-1)
+			return;
+		
+		change.prop!==undefined
+			&& (change.to=W(change.to).clone())
+			
+		change.added
+			&& (change.added=W(change.added).clone())
+
+		clients.forEach(function(v){
+			v.sendSync(change, ancestors, model);
+		});
+	})
+	var clients=[];
 	
 	var Client = (function() {
-		function client(model, cl) {
+		function client(base, cl) {
+console.log('new client')
+
+			clients.push(this);
 			var _this=this;
 			
 			this.active=Deferred();
@@ -18,117 +38,96 @@ module.exports=function(io, model) {
 			
 			this.updateLoop=false;
 			this.client=cl;
-			W(this).alter('model', model);
+			this.base=base;
 			
 			this['on disconnect']();
-			this['on model update sync']();
 			this['on sync update model']();
 			
 			typeof window=='undefined'
 				&& this.sendModel();
 				
-			
+			setTimeout(function() {
+				_this.client.emit('io-ready');
+			})
 		}
 		client.prototype['on disconnect']=function() {
 			var _this=this;
 			this.client.on('disconnect', function () {
 				_this.active.reject();
-				W(_this).alter('model',null);
+				clients = clients.filter(function(v){return v!=_this});
 			});	
 		}
-		client.prototype['on model update sync']=function() {
-			var _this=this;
+		client.prototype.sendSync=function(v, ancestors, model) {
+		
+			if (this.updateLoop)
+				return;
+
+			var tosrc=[];
+
+			parse(model);
 			
-			this.binding = W(this.model).match(function(){return true}).watch(function(e,d) {
-	
-				if (_this.updateLoop)
-					return;
-			
-				d.forEach(function(v) {
-					var ancestors = W(v.src).or().ancestors().getAll();
-					var tosrc=[];
-					
-					var model = W(_this).child('model').get();
-					parse(model);
-					
-					function parse(subject) {					
-						
-						if (!subject)
-							return subject;
-						
-						switch(subject.constructor) {
-							case Array:
-								var x,len;
-								var res=[];
+			function parse(subject) {					
+				
+				if (!subject)
+					return subject;
 
-								for (x=0, len=subject.length; x < len; x++) {
-									var s = subject[x];
-									if (ancestors.indexOf(s)==-1)
-										continue;
-									
-									tosrc.push({prop: x, type: s.constructor==Array ? 'array' : 'object'});
-									parse(s);
-								}
-								break;
-							case Object:
-								var i;
-								for (i in subject) {
-									if (i=='__ward__')
-										continue;
+				switch(subject.constructor) {
+					case Array:
+						var x,len;
+						var res=[];
 
-									var s = subject[i];
-
-									if (ancestors.indexOf(s)==-1)
-										continue;
-									
-									tosrc.push({prop: i, type: s.constructor==Array ? 'array' : 'object'});
-									parse(s);
-								}
-								break;
+						for (x=0, len=subject.length; x < len; x++) {
+							var s = subject[x];
+							if (ancestors.indexOf(s)==-1)
+								continue;
+							
+							tosrc.push({prop: x, type: s.constructor==Array ? 'array' : 'object'});
+							parse(s);
 						}
-					};
-										
-					if (!isNaN(v.start) && !isNaN(v.cut))
-						_this.client.emit('io-sync', tosrc, 'splice', v.start, v.cut, W(v.added).clone());
-					else if (v.added && v.added.length)
-						_this.client.emit('io-sync', tosrc, 'push', W(v.added).clone());
-					else if (v.removed && v.removed.length)
-						_this.client.emit('io-sync', tosrc, 'remove', v.removed.at);
-					else if (v.prop!==undefined)
-						_this.client.emit('io-sync', tosrc, 'alter', v.prop, W(v.to).clone());
-					
-				})
-			});
+						break;
+					case Object:
+						var i;
+						for (i in subject) {
+							if (i=='__ward__')
+								continue;
+
+							var s = subject[i];
+
+							if (ancestors.indexOf(s)==-1)
+								continue;
+							
+							tosrc.push({prop: i, type: s.constructor==Array ? 'array' : 'object'});
+							parse(s);
+						}
+						break;
+				}
+			};
+			
+			if (!isNaN(v.start) && !isNaN(v.cut))
+				this.client.emit('io-sync', tosrc, 'splice', v.start, v.cut, W(v.added).clone());
+			else if (v.prop!==undefined)
+				this.client.emit('io-sync', tosrc, 'alter', v.prop, W(v.to).clone());
 		}
 		client.prototype['on sync update model']=function() {
 			var _this=this;	
 			this.client.on('io-sync', function(src, action) {
 				_this.updateLoop=true;
 
-console.log(arguments)				
+console.log(arguments)
 				
 				if (action=='init') {
-					W(_this).ref('model', src);
+					W(_this.base).alter('model', src);
 					_this.updateLoop=false;
 					return;
 				}
 
-				var subject = getToSrc(_this.model, src);
+				var subject = getToSrc(_this.base.model, src);
 		
-		
-				if (action=='push')
-					W(subject).push(arguments[2]);
-				else if (action=='alter')
-					W(subject).alter(arguments[2], arguments[3])
-				else if (action=='remove') {
-					var at=arguments[2];
-					W(subject).remove(function(v, x) {
-						return at.indexOf(x)>-1;
-					});
-				} else if (action=='splice')
+				if (action=='alter')
+					W(subject).alter(arguments[2], arguments[3]);
+				else if (action=='splice')
 					W(subject).splice(arguments[2], arguments[3], arguments[4])
 
-				
 				_this.updateLoop=false;
 			});
 			
@@ -147,7 +146,14 @@ console.log(arguments)
 			}
 		}
 		client.prototype.sendModel=function() {
-			this.client.emit('io-sync', W(this.model).clone(), 'init');
+			var _this=this;
+			this.client.on('io-ready', function rd() {
+				_this.client.removeListener('io-ready', rd);
+				
+				var data = W(_this.base)('model').clone();
+				_this.client.emit('io-sync', data, 'init');
+				
+			})
 		}
 		
 		return client;
@@ -155,8 +161,8 @@ console.log(arguments)
 	
 	typeof window=='undefined'
 		? io.sockets.on('connection', function (client) {
-			new Client(model, client);
+			new Client(base, client);
 		})
-		: new Client(io, model);
+		: new Client(base, io);
 	
 }
